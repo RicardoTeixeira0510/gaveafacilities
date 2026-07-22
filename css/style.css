@@ -334,22 +334,6 @@
             font-weight: 500;
             cursor: pointer;
         }
-        .btn-pdf {
-            background: #1d4b77;
-            color: white;
-            border: none;
-            padding: 12px 32px;
-            border-radius: 60px;
-            font-weight: 600;
-            font-size: 15px;
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            transition: 0.15s;
-            margin-top: 12px;
-        }
-        .btn-pdf:hover { background: #0f3a5e; }
         .btn-excel {
             background: #1f8b4c;
             color: white;
@@ -506,4 +490,178 @@
         }
         .nome-principal {
             font-weight: 600;
+        }
+
+        /* =========================================================
+           RESPONSIVO — CELULAR / TELAS PEQUENAS
+           ========================================================= */
+        @media (max-width: 860px) {
+            body {
+                padding: 12px 8px;
+            }
+            .container {
+                border-radius: 18px;
+                padding: 18px 14px 26px;
+            }
+            h1 {
+                font-size: 19px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .sub {
+                font-size: 13px;
+                margin-left: 0;
+                width: 100%;
+            }
+
+            /* Área de upload empilhada e ocupando a largura toda */
+            .upload-area {
+                border-radius: 20px;
+                padding: 14px 16px;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            .upload-area label {
+                justify-content: center;
+                width: 100%;
+            }
+            #file-status {
+                text-align: center;
+                width: 100%;
+            }
+
+            /* Cards de totais em coluna única */
+            .totais-bar {
+                flex-direction: column;
+            }
+            .total-card {
+                flex: 1 1 auto;
+            }
+
+            /* Abas de status em carrossel horizontal, sem quebrar layout */
+            .tabs-bar {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 12px;
+            }
+            .tab-item {
+                flex-shrink: 0;
+            }
+
+            /* Filtros empilhados, ocupando a largura toda */
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filters input, .filters select {
+                width: 100%;
+                min-width: 0;
+            }
+
+            /* Tabela vira lista de cartões, sem precisar rolar de lado */
+            .table-wrap {
+                border: none;
+                overflow-x: visible;
+            }
+            table, thead, tbody, tr {
+                display: block;
+                width: 100%;
+            }
+            thead {
+                display: none;
+            }
+            tbody tr {
+                background: white;
+                border: 1px solid #e2e9f2;
+                border-radius: 16px;
+                padding: 4px 14px;
+                margin-bottom: 12px;
+                box-shadow: 0 2px 8px rgba(11,43,74,0.06);
+            }
+            tbody tr:hover td {
+                background: transparent;
+            }
+            td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 10px 0;
+                border-bottom: 1px solid #eef2f7;
+                text-align: right;
+                background: transparent !important;
+            }
+            td:last-child {
+                border-bottom: none;
+            }
+            td::before {
+                content: attr(data-label);
+                font-size: 11.5px;
+                font-weight: 700;
+                color: #5c7896;
+                text-align: left;
+                flex-shrink: 0;
+            }
+            /* Linha de ações: botões ocupando a largura toda, sem o rótulo lateral */
+            td[data-label="Ações"] {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: left;
+            }
+            td[data-label="Ações"]::before {
+                margin-bottom: 6px;
+            }
+            .btn-group {
+                width: 100%;
+                justify-content: stretch;
+            }
+            .btn-group button {
+                flex: 1 1 auto;
+                justify-content: center;
+            }
+            /* Mensagens de estado vazio / sem resultado não devem virar "cartão" */
+            td.td-full {
+                display: block;
+                text-align: center;
+                background: transparent !important;
+            }
+            td.td-full::before {
+                content: none;
+            }
+
+            /* Botão de exportar Excel ocupando a largura toda */
+            .footer-actions {
+                justify-content: stretch;
+            }
+            .btn-excel {
+                width: 100%;
+                justify-content: center;
+            }
+
+            /* Modais mais confortáveis em telas pequenas */
+            .obs-card, .data-modal {
+                width: 92%;
+                padding: 22px 18px;
+            }
+            .data-modal .btn-group-modal {
+                flex-direction: column-reverse;
+                gap: 8px;
+            }
+            .data-modal .btn-confirmar,
+            .data-modal .btn-cancelar {
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 420px) {
+            h1 {
+                font-size: 17px;
+            }
+            .btn-aprovar, .btn-negar, .btn-analise {
+                font-size: 12px;
+                padding: 7px 12px;
+            }
         }

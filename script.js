@@ -269,8 +269,7 @@
             if (registros.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="11">
-                            <div class="empty-state">
+                        <td colspan="11" class="td-full">
                                 <i class="fas fa-file-upload"></i>
                                 <p>Carregue uma planilha para começar</p>
                                 <p style="font-size:13px; margin-top:8px; color:#8aa3c0;">Clique em "Importar planilha" para selecionar o arquivo</p>
@@ -283,7 +282,7 @@
 
             if (filtered.length === 0) {
                 const nomeAba = abaAtual || 'Todos';
-                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:24px; color:#6e8aaa;">Nenhum registro em "${escHtml(nomeAba)}" com esses filtros</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="td-full" style="text-align:center; padding:24px; color:#6e8aaa;">Nenhum registro em "${escHtml(nomeAba)}" com esses filtros</td></tr>`;
                 return;
             }
 
@@ -298,21 +297,21 @@
                 const dataExibicao = formatarDataParaExibicao(r.novoVencimento);
 
                 html += `<tr>
-                    <td class="badge-empresa">${escHtml(r.empresa)}</td>
-                    <td>${escHtml(r.nomePessoa)}</td>
-                    <td>${r.nrTitulo ? `<span class="nr-titulo"><i class="fas fa-hashtag"></i> ${escHtml(r.nrTitulo)}</span>` : '—'}</td>
-                    <td>${escHtml(r.dtVencimento)}</td>
-                    <td>${escHtml(r.natureza)}</td>
-                    <td>${escHtml(r.centroCusto)}</td>
-                    <td class="valor">${valorFormatado}</td>
-                    <td class="observacao-cell">
+                    <td class="badge-empresa" data-label="Empresa">${escHtml(r.empresa)}</td>
+                    <td data-label="Pessoa">${escHtml(r.nomePessoa)}</td>
+                    <td data-label="Nr. Título">${r.nrTitulo ? `<span class="nr-titulo"><i class="fas fa-hashtag"></i> ${escHtml(r.nrTitulo)}</span>` : '—'}</td>
+                    <td data-label="Vencimento">${escHtml(r.dtVencimento)}</td>
+                    <td data-label="Natureza">${escHtml(r.natureza)}</td>
+                    <td data-label="Centro de custo">${escHtml(r.centroCusto)}</td>
+                    <td class="valor" data-label="Vl. título">${valorFormatado}</td>
+                    <td class="observacao-cell" data-label="Observação">
                         ${obsPreview ? `<button class="btn-pequeno" data-idx="${r.id}"><i class="fas fa-eye"></i> ver</button>` : '—'}
                     </td>
-                    <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                    <td>
+                    <td data-label="Status"><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                    <td data-label="Novo venc.">
                         ${(r.status === 'Negado' || r.status === 'Em análise') && r.novoVencimento ? `<span style="font-size:11px; background:#eef3fa; padding:2px 10px; border-radius:30px;">${dataExibicao}</span>` : '—'}
                     </td>
-                    <td>
+                    <td data-label="Ações">
                         <div class="btn-group">
                             <button class="btn-aprovar" data-idx="${r.id}"><i class="fas fa-check"></i> Aprovar</button>
                             <button class="btn-negar" data-idx="${r.id}"><i class="fas fa-times"></i> Negar</button>
@@ -541,6 +540,7 @@
                     { header: 'Vl. em Aberto', key: 'vlAberto', width: 15 },
                     { header: 'Status', key: 'status', width: 15 },
                     { header: 'Novo Vencimento', key: 'novoVencimento', width: 17 },
+                    { header: 'Observação', key: 'observacao', width: 42 },
                 ];
 
                 // Estilo do cabeçalho
@@ -567,11 +567,15 @@
                         vlAberto: valorAberto,
                         status: r.status,
                         novoVencimento: (r.status === 'Negado' || r.status === 'Em análise') ? (formatarDataParaExibicao(r.novoVencimento) || '') : '',
+                        observacao: r.observacao || '',
                     });
 
                     row.eachCell((cell) => {
                         cell.border = { top: bordaFina, left: bordaFina, right: bordaFina, bottom: bordaFina };
-                        cell.alignment = { vertical: 'middle' };
+                        // Sem wrapText: a linha não cresce em altura. O texto completo fica
+                        // salvo na célula e aparece por inteiro ao clicar nela para editar
+                        // (barra de fórmulas do Excel), mesmo que visualmente fique cortado.
+                        cell.alignment = { vertical: 'middle', wrapText: false };
                     });
 
                     row.getCell('vlTitulo').numFmt = '"R$" #,##0.00';
@@ -591,7 +595,7 @@
                 });
 
                 // Filtro automático em todo o cabeçalho (permite filtrar/ordenar por qualquer coluna)
-                sheet.autoFilter = { from: 'A1', to: 'J1' };
+                sheet.autoFilter = { from: 'A1', to: 'K1' };
 
                 // ---------- Aba 2: Resumo ----------
                 const resumo = workbook.addWorksheet('Resumo');
@@ -656,160 +660,6 @@
                 btn.disabled = false;
                 btn.innerHTML = textoOriginal;
             }
-        });
-
-        // ----- PDF -----
-        document.getElementById('gerar-pdf').addEventListener('click', function() {
-            if (registros.length === 0) {
-                alert('Carregue uma planilha antes de gerar o relatório.');
-                return;
-            }
-
-            // Bloqueia a geração enquanto houver pagamentos ainda como "Pendente"
-            const pendentes = registros.filter(r => r.status === 'Pendente');
-            if (pendentes.length > 0) {
-                alert(`Ainda há ${pendentes.length} pagamento(s) como "Pendente".\n\nAprove, negue ou coloque em análise todos os títulos antes de gerar o relatório em PDF.`);
-                trocarAba('Pendente');
-                return;
-            }
-
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('landscape', 'pt', 'a4');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeightDoc = doc.internal.pageSize.getHeight();
-            const margin = 32;
-
-            const aprovados = registros.filter(r => r.status === 'Aprovado');
-            const negados = registros.filter(r => r.status === 'Negado');
-            const emAnalise = registros.filter(r => r.status === 'Em análise');
-
-            if (aprovados.length === 0 && negados.length === 0 && emAnalise.length === 0) {
-                alert('Não há itens aprovados, negados ou em análise para gerar o PDF.');
-                return;
-            }
-
-            // ----- Cabeçalho -----
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(16);
-            doc.setTextColor(11, 43, 74);
-            doc.text('Relatório de Aprovação de Pagamentos', margin, 38);
-
-            doc.setFontSize(11);
-            doc.setTextColor(62, 94, 122);
-            doc.text('BIMER', margin, 55);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            doc.setTextColor(120, 140, 165);
-            doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, pageWidth - margin, 38, { align: 'right' });
-
-            doc.setDrawColor(220, 230, 245);
-            doc.setLineWidth(1);
-            doc.line(margin, 66, pageWidth - margin, 66);
-
-            // ----- Resumo -----
-            const somaValor = (arr) => arr.reduce((s, r) => s + Math.abs(r.vlAberto ?? r.vlTitulo ?? 0), 0);
-            const totalAprovadoValor = somaValor(aprovados);
-            const totalNegadoValor = somaValor(negados);
-            const totalAnaliseValor = somaValor(emAnalise);
-
-            let y = 86;
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(19, 115, 61);
-            doc.text(`Aprovados: ${aprovados.length}  •  ${formatarValor(totalAprovadoValor)}`, margin, y);
-            doc.setTextColor(148, 46, 46);
-            doc.text(`Negados: ${negados.length}  •  ${formatarValor(totalNegadoValor)}`, margin + 220, y);
-            doc.setTextColor(150, 100, 20);
-            doc.text(`Em análise: ${emAnalise.length}  •  ${formatarValor(totalAnaliseValor)}`, margin + 420, y);
-            y += 22;
-
-            // ----- Colunas -----
-            const headers = ['Empresa', 'Pessoa', 'Nr. Título', 'Dt. Vencimento', 'Natureza', 'Centro de Custo', 'Valor', 'Novo Venc.'];
-            const columnStyles = {
-                0: { cellWidth: 110 },
-                1: { cellWidth: 110 },
-                2: { cellWidth: 78 },
-                3: { cellWidth: 65, halign: 'center' },
-                4: { cellWidth: 100 },
-                5: { cellWidth: 100 },
-                6: { cellWidth: 70, halign: 'right' },
-                7: { cellWidth: 58, halign: 'center' },
-            };
-            const baseStyles = {
-                font: 'helvetica',
-                fontSize: 8,
-                cellPadding: 5,
-                overflow: 'linebreak',
-                valign: 'middle',
-                textColor: [26, 52, 77],
-                lineColor: [226, 233, 242],
-                lineWidth: 0.5,
-            };
-
-            function buildBody(data) {
-                return data.map(r => [
-                    r.empresa,
-                    r.nomePessoa,
-                    r.nrTitulo || '—',
-                    r.dtVencimento || '—',
-                    r.natureza,
-                    r.centroCusto,
-                    formatarValor(r.vlAberto ?? r.vlTitulo ?? 0),
-                    (r.status === 'Negado' || r.status === 'Em análise') ? (formatarDataParaExibicao(r.novoVencimento) || '—') : '—',
-                ]);
-            }
-
-            function desenharSecao(titulo, data, corTitulo, corCabecalho) {
-                if (data.length === 0) return;
-                if (y > pageHeightDoc - 120) {
-                    doc.addPage();
-                    y = 40;
-                }
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(...corTitulo);
-                doc.text(titulo, margin, y);
-
-                doc.autoTable({
-                    head: [headers],
-                    body: buildBody(data),
-                    startY: y + 8,
-                    margin: { left: margin, right: margin, bottom: 36 },
-                    styles: baseStyles,
-                    headStyles: { fillColor: corCabecalho, textColor: corTitulo, fontStyle: 'bold', fontSize: 8.5 },
-                    alternateRowStyles: { fillColor: [249, 251, 253] },
-                    columnStyles,
-                    theme: 'grid',
-                    // Evita que uma linha seja cortada ao meio entre duas páginas: se a linha
-                    // inteira não couber no espaço restante, ela é movida por completo para a
-                    // próxima página em vez de dividir o texto entre as duas folhas.
-                    rowPageBreak: 'avoid',
-                    didDrawPage: function() {
-                        doc.setFontSize(8);
-                        doc.setTextColor(150, 160, 175);
-                        doc.text('Relatório de Aprovação de Pagamentos – BIMER', margin, pageHeightDoc - 15);
-                    }
-                });
-
-                y = doc.lastAutoTable.finalY + 26;
-            }
-
-            desenharSecao('Itens Aprovados', aprovados, [10, 75, 42], [199, 240, 217]);
-            desenharSecao('Itens Negados', negados, [127, 42, 42], [248, 212, 212]);
-            desenharSecao('Itens Em Análise', emAnalise, [127, 94, 26], [255, 237, 201]);
-
-            // ----- Numeração de páginas -----
-            const totalPaginas = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= totalPaginas; i++) {
-                doc.setPage(i);
-                doc.setFontSize(8);
-                doc.setTextColor(150, 160, 175);
-                doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - margin, pageHeightDoc - 15, { align: 'right' });
-            }
-
-            const dataArquivo = new Date().toISOString().slice(0, 10);
-            doc.save(`relatorio_aprovacao_bimer_${dataArquivo}.pdf`);
         });
 
         // ----- Eventos -----
