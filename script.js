@@ -733,6 +733,7 @@
             } catch (err) {
                 if (err && err.name === 'AbortError') return; // o usuário cancelou, tudo certo
                 console.error('Erro ao compartilhar (com título/texto):', err);
+                window.__ultimoErroCompartilhar = (err && err.name ? err.name : 'Erro') + ': ' + (err && err.message ? err.message : String(err));
             }
 
             // 2ª tentativa: alguns navegadores recusam quando o arquivo vem junto com
@@ -743,10 +744,17 @@
             } catch (err2) {
                 if (err2 && err2.name === 'AbortError') return;
                 console.error('Erro ao compartilhar (somente arquivo):', err2);
+                window.__ultimoErroCompartilhar = (err2 && err2.name ? err2.name : 'Erro') + ': ' + (err2 && err2.message ? err2.message : String(err2));
             }
 
-            // Se nem assim funcionou, avisa em vez de ficar em silêncio
-            alert('Não foi possível abrir o menu de compartilhamento neste momento.\n\nUse o botão "Baixar" para salvar o arquivo e compartilhe manualmente pelo WhatsApp ou outro app.');
+            // DIAGNÓSTICO TEMPORÁRIO: mostra o erro exato + navegador, para descobrirmos
+            // com certeza por que o compartilhamento está falhando neste aparelho.
+            alert(
+                'DIAGNÓSTICO (temporário):\n\n' +
+                'Erro: ' + (window.__ultimoErroCompartilhar || 'desconhecido') + '\n\n' +
+                'Navegador: ' + navigator.userAgent + '\n\n' +
+                'Por favor, tire um print desta mensagem e envie para o suporte.'
+            );
         }
 
         if (btnCompartilharExcel) {
