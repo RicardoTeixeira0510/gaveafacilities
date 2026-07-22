@@ -700,36 +700,53 @@
 
         // Compartilha o arquivo Excel gerado (usado apenas no celular)
         async function compartilharExcelGerado() {
-            if (!excelGerado) return;
+            if (!excelGerado) {
+                alert('O arquivo ainda não está pronto. Gere o Excel novamente e tente compartilhar assim que o menu aparecer.');
+                return;
+            }
 
             if (!navigator.share) {
                 alert('Este navegador não oferece a opção de compartilhamento direto. Use o botão "Baixar" e envie o arquivo pelo app desejado.');
                 return;
             }
 
+            let suportaArquivo = false;
             try {
-                let suportaArquivo = false;
-                try {
-                    suportaArquivo = !!(navigator.canShare && navigator.canShare({ files: [excelGerado.arquivo] }));
-                } catch (e) {
-                    suportaArquivo = false;
-                }
+                suportaArquivo = !!(navigator.canShare && navigator.canShare({ files: [excelGerado.arquivo] }));
+            } catch (e) {
+                suportaArquivo = false;
+            }
 
-                if (!suportaArquivo) {
-                    alert('Este navegador não permite compartilhar arquivos diretamente. Use o botão "Baixar" e envie o arquivo pelo app desejado.');
-                    return;
-                }
+            if (!suportaArquivo) {
+                alert('Este navegador não permite compartilhar arquivos diretamente. Use o botão "Baixar" e envie o arquivo pelo app desejado.');
+                return;
+            }
 
+            // 1ª tentativa: arquivo + título + texto
+            try {
                 await navigator.share({
                     files: [excelGerado.arquivo],
                     title: 'Relatório de Aprovação · BIMER',
                     text: 'Segue o relatório de aprovação de pagamentos.',
                 });
+                return; // deu certo
             } catch (err) {
-                // AbortError = o próprio usuário cancelou o compartilhamento, não é erro
-                if (err && err.name === 'AbortError') return;
-                console.error('Erro ao compartilhar:', err);
+                if (err && err.name === 'AbortError') return; // o usuário cancelou, tudo certo
+                console.error('Erro ao compartilhar (com título/texto):', err);
             }
+
+            // 2ª tentativa: alguns navegadores recusam quando o arquivo vem junto com
+            // título/texto — tenta de novo só com o arquivo
+            try {
+                await navigator.share({ files: [excelGerado.arquivo] });
+                return;
+            } catch (err2) {
+                if (err2 && err2.name === 'AbortError') return;
+                console.error('Erro ao compartilhar (somente arquivo):', err2);
+            }
+
+            // Se nem assim funcionou, avisa em vez de ficar em silêncio
+            alert('Não foi possível abrir o menu de compartilhamento neste momento.\n\nUse o botão "Baixar" para salvar o arquivo e compartilhe manualmente pelo WhatsApp ou outro app.');
         }
 
         if (btnCompartilharExcel) {
