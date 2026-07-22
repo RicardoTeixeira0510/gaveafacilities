@@ -660,7 +660,7 @@
 
                 // Sempre mostra o modal com as duas opções, tanto no computador quanto no celular.
                 // O que muda é o que acontece por trás do botão "Compartilhar" (ver compartilharExcelGerado).
-                shareModal.classList.add('active');
+                if (shareModal) shareModal.classList.add('active');
             } catch (error) {
                 console.error('Erro ao gerar Excel:', error);
                 alert('Erro ao gerar o Excel: ' + error.message);
@@ -683,72 +683,80 @@
             URL.revokeObjectURL(url);
         }
 
-        // Compartilha o arquivo Excel gerado.
-        //
-        // CELULAR (Android/Chrome, iOS/Safari): o navegador suporta compartilhar o
-        // ARQUIVO diretamente, então abrimos o menu nativo de compartilhamento do
-        // sistema — o usuário escolhe o app (WhatsApp, e-mail, Drive, etc.) e o
-        // arquivo já vai anexado.
-        //
-        // COMPUTADOR/NOTEBOOK: a maioria dos navegadores de desktop (Chrome, Firefox,
-        // no Windows/Mac/Linux) não permite anexar um arquivo automaticamente ao
-        // WhatsApp Web por segurança — nenhum site pode fazer isso sozinho, nem o
-        // próprio WhatsApp libera essa integração. Então, quando o navegador não
-        // suporta compartilhar o arquivo nativamente (ex.: Edge no Windows e o Safari
-        // no Mac chegam a suportar; Chrome/Firefox geralmente não), baixamos o
-        // Excel automaticamente e abrimos o WhatsApp Web/Desktop já com uma mensagem
-        // pronta — falta só arrastar o arquivo baixado para dentro da conversa.
+        // Detecta se o dispositivo é um celular/tablet (e não um computador)
+        function isMobileDevice() {
+            return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent);
+        }
+
+        // No computador/notebook não existe forma de anexar um arquivo automaticamente
+        // no WhatsApp (ou qualquer outro app) direto do navegador — isso não é uma
+        // limitação do site, é uma restrição de segurança de todo navegador de
+        // desktop. Por isso, no PC mostramos só a opção "Baixar"; o botão
+        // "Compartilhar" só aparece no celular, onde o sistema oferece o menu nativo
+        // de compartilhamento (WhatsApp, e-mail, Drive, etc.) com o arquivo já anexado.
+        if (!isMobileDevice() && btnCompartilharExcel) {
+            btnCompartilharExcel.style.display = 'none';
+        }
+
+        // Compartilha o arquivo Excel gerado (usado apenas no celular)
         async function compartilharExcelGerado() {
             if (!excelGerado) return;
 
-            let suportaCompartilharArquivo = false;
-            try {
-                suportaCompartilharArquivo = !!(navigator.canShare && navigator.canShare({ files: [excelGerado.arquivo] }));
-            } catch (e) {
-                suportaCompartilharArquivo = false;
-            }
-
-            if (suportaCompartilharArquivo) {
-                try {
-                    await navigator.share({
-                        files: [excelGerado.arquivo],
-                        title: 'Relatório de Aprovação · BIMER',
-                        text: 'Segue o relatório de aprovação de pagamentos.',
-                    });
-                } catch (err) {
-                    // AbortError = o próprio usuário cancelou o compartilhamento, não é erro
-                    if (err && err.name !== 'AbortError') {
-                        console.error('Erro ao compartilhar:', err);
-                    }
-                }
+            if (!navigator.share) {
+                alert('Este navegador não oferece a opção de compartilhamento direto. Use o botão "Baixar" e envie o arquivo pelo app desejado.');
                 return;
             }
 
-            // Fallback (computador sem suporte a compartilhar arquivo): baixa o Excel
-            // e abre o WhatsApp Web com uma mensagem, para o usuário anexar manualmente.
-            baixarExcelGerado();
-            const texto = encodeURIComponent('Segue o relatório de aprovação de pagamentos. O arquivo já foi baixado — é só anexar aqui na conversa 📎');
-            window.open(`https://web.whatsapp.com/send?text=${texto}`, '_blank');
-            alert('O arquivo foi baixado e o WhatsApp Web foi aberto em uma nova aba.\n\nComo os navegadores de computador não permitem anexar arquivos automaticamente no WhatsApp por segurança, é só arrastar o arquivo baixado (da pasta Downloads) para dentro da conversa.');
+            try {
+                let suportaArquivo = false;
+                try {
+                    suportaArquivo = !!(navigator.canShare && navigator.canShare({ files: [excelGerado.arquivo] }));
+                } catch (e) {
+                    suportaArquivo = false;
+                }
+
+                if (!suportaArquivo) {
+                    alert('Este navegador não permite compartilhar arquivos diretamente. Use o botão "Baixar" e envie o arquivo pelo app desejado.');
+                    return;
+                }
+
+                await navigator.share({
+                    files: [excelGerado.arquivo],
+                    title: 'Relatório de Aprovação · BIMER',
+                    text: 'Segue o relatório de aprovação de pagamentos.',
+                });
+            } catch (err) {
+                // AbortError = o próprio usuário cancelou o compartilhamento, não é erro
+                if (err && err.name === 'AbortError') return;
+                console.error('Erro ao compartilhar:', err);
+            }
         }
 
-        btnCompartilharExcel.addEventListener('click', async () => {
-            await compartilharExcelGerado();
-            shareModal.classList.remove('active');
-        });
+        if (btnCompartilharExcel) {
+            btnCompartilharExcel.addEventListener('click', async () => {
+                await compartilharExcelGerado();
+                if (shareModal) shareModal.classList.remove('active');
+            });
+        }
 
-        btnBaixarExcel.addEventListener('click', () => {
-            baixarExcelGerado();
-            shareModal.classList.remove('active');
-        });
+        if (btnBaixarExcel) {
+            btnBaixarExcel.addEventListener('click', () => {
+                baixarExcelGerado();
+                if (shareModal) shareModal.classList.remove('active');
+            });
+        }
 
-        cancelarShare.addEventListener('click', () => {
-            shareModal.classList.remove('active');
-        });
+        if (cancelarShare) {
+            cancelarShare.addEventListener('click', () => {
+                if (shareModal) shareModal.classList.remove('active');
+            });
+        }
 
-        shareModal.addEventListener('click', (e) => {
-            if (e.target === shareModal) shareModal.classList.remove('active');
-        });
+        if (shareModal) {
+            shareModal.addEventListener('click', (e) => {
+                if (e.target === shareModal) shareModal.classList.remove('active');
+            });
+        }
 
         // ----- Eventos -----
         fileInput.addEventListener('change', function(e) {
