@@ -4,7 +4,6 @@
         let colMap = {};
         let pendingNegateId = null;
         let flatpickrInstance = null;
-        let excelGerado = null; // { blob, arquivo, nomeArquivo } do último Excel gerado
 
         // referências
         const tbody = document.getElementById('table-body');
@@ -27,11 +26,6 @@
         const confirmarData = document.getElementById('confirmarData');
         const cancelarData = document.getElementById('cancelarData');
         const avisoFimSemana = document.getElementById('avisoFimSemana');
-
-        const shareModal = document.getElementById('shareModal');
-        const btnCompartilharExcel = document.getElementById('btnCompartilharExcel');
-        const btnBaixarExcel = document.getElementById('btnBaixarExcel');
-        const cancelarShare = document.getElementById('cancelarShare');
 
         // ----- helpers -----
         function getVal(row, label) {
@@ -653,14 +647,9 @@
                 const blob = new Blob([buffer], { type: mimeType });
                 const dataArquivo = new Date().toISOString().slice(0, 10);
                 const nomeArquivo = `relatorio_aprovacao_bimer_${dataArquivo}.xlsx`;
-                const arquivo = new File([buffer], nomeArquivo, { type: mimeType });
 
-                // Guarda o arquivo gerado para os botões do modal (compartilhar/baixar) usarem
-                excelGerado = { blob, arquivo, nomeArquivo };
-
-                // Sempre mostra o modal com as duas opções, tanto no computador quanto no celular.
-                // O que muda é o que acontece por trás do botão "Compartilhar" (ver compartilharExcelGerado).
-                if (shareModal) shareModal.classList.add('active');
+                // Baixa o arquivo direto, sem passar por nenhum modal de escolha
+                baixarExcelGerado(blob, nomeArquivo);
             } catch (error) {
                 console.error('Erro ao gerar Excel:', error);
                 alert('Erro ao gerar o Excel: ' + error.message);
@@ -670,117 +659,16 @@
             }
         });
 
-        // Baixa o arquivo Excel já gerado (salvo em excelGerado) — funciona igual no PC e no celular
-        function baixarExcelGerado() {
-            if (!excelGerado) return;
-            const url = URL.createObjectURL(excelGerado.blob);
+        // Baixa o arquivo Excel gerado — funciona igual no PC e no celular
+        function baixarExcelGerado(blob, nomeArquivo) {
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = excelGerado.nomeArquivo;
+            a.download = nomeArquivo;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        }
-
-        // Detecta se o dispositivo é um celular/tablet (e não um computador)
-        function isMobileDevice() {
-            return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent);
-        }
-
-        // No computador/notebook não existe forma de anexar um arquivo automaticamente
-        // no WhatsApp (ou qualquer outro app) direto do navegador — isso não é uma
-        // limitação do site, é uma restrição de segurança de todo navegador de
-        // desktop. Por isso, no PC mostramos só a opção "Baixar"; o botão
-        // "Compartilhar" só aparece no celular, onde o sistema oferece o menu nativo
-        // de compartilhamento (WhatsApp, e-mail, Drive, etc.) com o arquivo já anexado.
-        if (!isMobileDevice() && btnCompartilharExcel) {
-            btnCompartilharExcel.style.display = 'none';
-        }
-
-        // Compartilha o arquivo Excel gerado (usado apenas no celular)
-        async function compartilharExcelGerado() {
-            if (!excelGerado) {
-                alert('O arquivo ainda não está pronto. Gere o Excel novamente e tente compartilhar assim que o menu aparecer.');
-                return;
-            }
-
-            if (!navigator.share) {
-                alert('Este navegador não oferece a opção de compartilhamento direto. Use o botão "Baixar" e envie o arquivo pelo app desejado.');
-                return;
-            }
-
-            let suportaArquivo = false;
-            try {
-                suportaArquivo = !!(navigator.canShare && navigator.canShare({ files: [excelGerado.arquivo] }));
-            } catch (e) {
-                suportaArquivo = false;
-            }
-
-            if (!suportaArquivo) {
-                alert('Este navegador não permite compartilhar arquivos diretamente. Use o botão "Baixar" e envie o arquivo pelo app desejado.');
-                return;
-            }
-
-            // 1ª tentativa: arquivo + título + texto
-            try {
-                await navigator.share({
-                    files: [excelGerado.arquivo],
-                    title: 'Relatório de Aprovação · BIMER',
-                    text: 'Segue o relatório de aprovação de pagamentos.',
-                });
-                return; // deu certo
-            } catch (err) {
-                if (err && err.name === 'AbortError') return; // o usuário cancelou, tudo certo
-                console.error('Erro ao compartilhar (com título/texto):', err);
-                window.__ultimoErroCompartilhar = (err && err.name ? err.name : 'Erro') + ': ' + (err && err.message ? err.message : String(err));
-            }
-
-            // 2ª tentativa: alguns navegadores recusam quando o arquivo vem junto com
-            // título/texto — tenta de novo só com o arquivo
-            try {
-                await navigator.share({ files: [excelGerado.arquivo] });
-                return;
-            } catch (err2) {
-                if (err2 && err2.name === 'AbortError') return;
-                console.error('Erro ao compartilhar (somente arquivo):', err2);
-                window.__ultimoErroCompartilhar = (err2 && err2.name ? err2.name : 'Erro') + ': ' + (err2 && err2.message ? err2.message : String(err2));
-            }
-
-            // DIAGNÓSTICO TEMPORÁRIO: mostra o erro exato + navegador, para descobrirmos
-            // com certeza por que o compartilhamento está falhando neste aparelho.
-            alert(
-                'DIAGNÓSTICO (temporário):\n\n' +
-                'Erro: ' + (window.__ultimoErroCompartilhar || 'desconhecido') + '\n\n' +
-                'Navegador: ' + navigator.userAgent + '\n\n' +
-                'Por favor, tire um print desta mensagem e envie para o suporte.'
-            );
-        }
-
-        if (btnCompartilharExcel) {
-            btnCompartilharExcel.addEventListener('click', async () => {
-                await compartilharExcelGerado();
-                if (shareModal) shareModal.classList.remove('active');
-            });
-        }
-
-        if (btnBaixarExcel) {
-            btnBaixarExcel.addEventListener('click', () => {
-                baixarExcelGerado();
-                if (shareModal) shareModal.classList.remove('active');
-            });
-        }
-
-        if (cancelarShare) {
-            cancelarShare.addEventListener('click', () => {
-                if (shareModal) shareModal.classList.remove('active');
-            });
-        }
-
-        if (shareModal) {
-            shareModal.addEventListener('click', (e) => {
-                if (e.target === shareModal) shareModal.classList.remove('active');
-            });
         }
 
         // ----- Eventos -----
