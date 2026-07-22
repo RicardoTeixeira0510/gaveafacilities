@@ -491,6 +491,77 @@
         .nome-principal {
             font-weight: 600;
         }
+        .share-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .share-modal-overlay.active {
+            display: flex;
+        }
+        .share-modal {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 420px;
+            width: 92%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .share-modal h3 {
+            margin-top: 0;
+            color: #0b2b4a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .share-modal .info-text {
+            color: #3e5e7a;
+            font-size: 14px;
+            margin: 8px 0 20px;
+        }
+        .share-modal-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .share-modal-actions button {
+            border: none;
+            padding: 13px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 14.5px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: 0.15s;
+        }
+        .btn-compartilhar {
+            background: #1d8a4c;
+            color: white;
+        }
+        .btn-compartilhar:hover { background: #146538; }
+        .btn-baixar {
+            background: #eaf1fa;
+            color: #0b2b4a;
+        }
+        .btn-baixar:hover { background: #d5e4f5; }
+        .btn-cancelar-share {
+            background: transparent;
+            border: none;
+            color: #8aa3c0;
+            margin-top: 16px;
+            font-size: 13.5px;
+            cursor: pointer;
+        }
+        .btn-cancelar-share:hover { color: #5c7896; }
 
         /* =========================================================
            RESPONSIVO — CELULAR / TELAS PEQUENAS
@@ -641,7 +712,7 @@
             }
 
             /* Modais mais confortáveis em telas pequenas */
-            .obs-card, .data-modal {
+            .obs-card, .data-modal, .share-modal {
                 width: 92%;
                 padding: 22px 18px;
             }

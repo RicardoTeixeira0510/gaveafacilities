@@ -4,6 +4,7 @@
         let colMap = {};
         let pendingNegateId = null;
         let flatpickrInstance = null;
+        let excelGerado = null; // { blob, arquivo, nomeArquivo } do último Excel gerado
 
         // referências
         const tbody = document.getElementById('table-body');
@@ -26,6 +27,11 @@
         const confirmarData = document.getElementById('confirmarData');
         const cancelarData = document.getElementById('cancelarData');
         const avisoFimSemana = document.getElementById('avisoFimSemana');
+
+        const shareModal = document.getElementById('shareModal');
+        const btnCompartilharExcel = document.getElementById('btnCompartilharExcel');
+        const btnBaixarExcel = document.getElementById('btnBaixarExcel');
+        const cancelarShare = document.getElementById('cancelarShare');
 
         // ----- helpers -----
         function getVal(row, label) {
@@ -643,16 +649,18 @@
                 });
 
                 const buffer = await workbook.xlsx.writeBuffer();
-                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
+                const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                const blob = new Blob([buffer], { type: mimeType });
                 const dataArquivo = new Date().toISOString().slice(0, 10);
-                a.href = url;
-                a.download = `relatorio_aprovacao_bimer_${dataArquivo}.xlsx`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                const nomeArquivo = `relatorio_aprovacao_bimer_${dataArquivo}.xlsx`;
+                const arquivo = new File([buffer], nomeArquivo, { type: mimeType });
+
+                // Guarda o arquivo gerado para os botões do modal (compartilhar/baixar) usarem
+                excelGerado = { blob, arquivo, nomeArquivo };
+
+                // Sempre mostra o modal com as duas opções, tanto no computador quanto no celular.
+                // O que muda é o que acontece por trás do botão "Compartilhar" (ver compartilharExcelGerado).
+                shareModal.classList.add('active');
             } catch (error) {
                 console.error('Erro ao gerar Excel:', error);
                 alert('Erro ao gerar o Excel: ' + error.message);
@@ -660,6 +668,86 @@
                 btn.disabled = false;
                 btn.innerHTML = textoOriginal;
             }
+        });
+
+        // Baixa o arquivo Excel já gerado (salvo em excelGerado) — funciona igual no PC e no celular
+        function baixarExcelGerado() {
+            if (!excelGerado) return;
+            const url = URL.createObjectURL(excelGerado.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = excelGerado.nomeArquivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Compartilha o arquivo Excel gerado.
+        //
+        // CELULAR (Android/Chrome, iOS/Safari): o navegador suporta compartilhar o
+        // ARQUIVO diretamente, então abrimos o menu nativo de compartilhamento do
+        // sistema — o usuário escolhe o app (WhatsApp, e-mail, Drive, etc.) e o
+        // arquivo já vai anexado.
+        //
+        // COMPUTADOR/NOTEBOOK: a maioria dos navegadores de desktop (Chrome, Firefox,
+        // no Windows/Mac/Linux) não permite anexar um arquivo automaticamente ao
+        // WhatsApp Web por segurança — nenhum site pode fazer isso sozinho, nem o
+        // próprio WhatsApp libera essa integração. Então, quando o navegador não
+        // suporta compartilhar o arquivo nativamente (ex.: Edge no Windows e o Safari
+        // no Mac chegam a suportar; Chrome/Firefox geralmente não), baixamos o
+        // Excel automaticamente e abrimos o WhatsApp Web/Desktop já com uma mensagem
+        // pronta — falta só arrastar o arquivo baixado para dentro da conversa.
+        async function compartilharExcelGerado() {
+            if (!excelGerado) return;
+
+            let suportaCompartilharArquivo = false;
+            try {
+                suportaCompartilharArquivo = !!(navigator.canShare && navigator.canShare({ files: [excelGerado.arquivo] }));
+            } catch (e) {
+                suportaCompartilharArquivo = false;
+            }
+
+            if (suportaCompartilharArquivo) {
+                try {
+                    await navigator.share({
+                        files: [excelGerado.arquivo],
+                        title: 'Relatório de Aprovação · BIMER',
+                        text: 'Segue o relatório de aprovação de pagamentos.',
+                    });
+                } catch (err) {
+                    // AbortError = o próprio usuário cancelou o compartilhamento, não é erro
+                    if (err && err.name !== 'AbortError') {
+                        console.error('Erro ao compartilhar:', err);
+                    }
+                }
+                return;
+            }
+
+            // Fallback (computador sem suporte a compartilhar arquivo): baixa o Excel
+            // e abre o WhatsApp Web com uma mensagem, para o usuário anexar manualmente.
+            baixarExcelGerado();
+            const texto = encodeURIComponent('Segue o relatório de aprovação de pagamentos. O arquivo já foi baixado — é só anexar aqui na conversa 📎');
+            window.open(`https://web.whatsapp.com/send?text=${texto}`, '_blank');
+            alert('O arquivo foi baixado e o WhatsApp Web foi aberto em uma nova aba.\n\nComo os navegadores de computador não permitem anexar arquivos automaticamente no WhatsApp por segurança, é só arrastar o arquivo baixado (da pasta Downloads) para dentro da conversa.');
+        }
+
+        btnCompartilharExcel.addEventListener('click', async () => {
+            await compartilharExcelGerado();
+            shareModal.classList.remove('active');
+        });
+
+        btnBaixarExcel.addEventListener('click', () => {
+            baixarExcelGerado();
+            shareModal.classList.remove('active');
+        });
+
+        cancelarShare.addEventListener('click', () => {
+            shareModal.classList.remove('active');
+        });
+
+        shareModal.addEventListener('click', (e) => {
+            if (e.target === shareModal) shareModal.classList.remove('active');
         });
 
         // ----- Eventos -----
