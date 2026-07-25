@@ -144,7 +144,7 @@
         }
 
         // Carregar planilha - VERSÃO CORRIGIDA
-        function loadWorkbook(data) {
+        function loadWorkbook(data, nomeArquivo) {
             try {
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -223,6 +223,17 @@
                     const dtVencRaw = chaveDtVenc !== undefined ? row[chaveDtVenc] : '';
                     const dtVencimento = formatarDataExcel(dtVencRaw);
                     
+                    // Monta o campo único "Dados de Pagamento" a partir de Chave PIX, Nr. agência
+                    // e C/C fornecedor (cada um em sua própria linha, só entra se tiver valor)
+                    const chavePix = get('Chave PIX (a pagar)');
+                    const nrAgencia = get('Nr. agência');
+                    const ccFornecedor = get('C/C fornecedor (a pagar)');
+                    const linhasDadosPagamento = [];
+                    if (chavePix) linhasDadosPagamento.push(`PIX: ${chavePix}`);
+                    if (nrAgencia) linhasDadosPagamento.push(`AG: ${nrAgencia}`);
+                    if (ccFornecedor) linhasDadosPagamento.push(`C/C: ${ccFornecedor}`);
+                    const dadosPagamento = linhasDadosPagamento.join('\n');
+
                     return {
                         id: idx,
                         empresa: get('Empresa') || 'N/A',
@@ -236,12 +247,15 @@
                         observacao: get('Observação') || '',
                         status: 'Pendente',
                         novoVencimento: '',
+                        formaPagamento: get('Forma de pagamento') || '',
+                        usuarioCadastro: get('Usuário (cadastro)') || '',
+                        dadosPagamento: dadosPagamento,
                     };
                 });
 
                 console.log('Registros processados:', registros.length);
 
-                fileStatus.textContent = `✅ ${fileInput.files[0]?.name || 'planilha'}`;
+                fileStatus.textContent = `✅ ${nomeArquivo || 'planilha'}`;
                 qtdRegistros.textContent = `${registros.length} registros`;
                 renderTable();
                 
@@ -540,6 +554,9 @@
                     { header: 'Vl. em Aberto', key: 'vlAberto', width: 15 },
                     { header: 'Status', key: 'status', width: 15 },
                     { header: 'Novo Vencimento', key: 'novoVencimento', width: 17 },
+                    { header: 'Forma de Pagamento', key: 'formaPagamento', width: 20 },
+                    { header: 'Dados de Pagamento', key: 'dadosPagamento', width: 30 },
+                    { header: 'Usuário (Cadastro)', key: 'usuarioCadastro', width: 20 },
                     { header: 'Observação', key: 'observacao', width: 42 },
                 ];
 
@@ -568,6 +585,9 @@
                         status: r.status,
                         novoVencimento: (r.status === 'Negado' || r.status === 'Em análise') ? (formatarDataParaExibicao(r.novoVencimento) || '') : '',
                         observacao: r.observacao || '',
+                        formaPagamento: r.formaPagamento || '',
+                        usuarioCadastro: r.usuarioCadastro || '',
+                        dadosPagamento: r.dadosPagamento || '',
                     });
 
                     row.eachCell((cell) => {
@@ -577,6 +597,16 @@
                         // (barra de fórmulas do Excel), mesmo que visualmente fique cortado.
                         cell.alignment = { vertical: 'middle', wrapText: false };
                     });
+
+                    // "Dados de Pagamento" pode ter várias linhas (PIX / AG / C/C), então essa
+                    // célula usa wrapText para exibir tudo já visível, sem precisar clicar
+                    if (r.dadosPagamento) {
+                        row.getCell('dadosPagamento').alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                        const qtdLinhas = r.dadosPagamento.split('\n').length;
+                        if (qtdLinhas > 1) {
+                            row.height = Math.max(row.height || 20, qtdLinhas * 14);
+                        }
+                    }
 
                     row.getCell('vlTitulo').numFmt = '"R$" #,##0.00';
                     row.getCell('vlAberto').numFmt = '"R$" #,##0.00';
@@ -595,7 +625,7 @@
                 });
 
                 // Filtro automático em todo o cabeçalho (permite filtrar/ordenar por qualquer coluna)
-                sheet.autoFilter = { from: 'A1', to: 'K1' };
+                sheet.autoFilter = { from: 'A1', to: 'N1' };
 
                 // ---------- Aba 2: Resumo ----------
                 const resumo = workbook.addWorksheet('Resumo');
@@ -672,15 +702,57 @@
         }
 
         // ----- Eventos -----
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
+
+        // Lê um arquivo (vindo do clique no botão OU de arrastar-e-soltar) e carrega a planilha
+        function handleFile(file) {
             if (!file) return;
+            const extensoesValidas = /\.(xls|xlsx|csv)$/i;
+            if (!extensoesValidas.test(file.name)) {
+                alert('Formato de arquivo não suportado. Envie um arquivo .xls, .xlsx ou .csv.');
+                return;
+            }
             const reader = new FileReader();
             reader.onload = function(ev) {
                 const data = new Uint8Array(ev.target.result);
-                loadWorkbook(data);
+                loadWorkbook(data, file.name);
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            handleFile(file);
+        });
+
+        // Arrastar e soltar planilha diretamente na área de upload
+        const uploadArea = document.getElementById('upload-area');
+
+        ['dragenter', 'dragover'].forEach((evento) => {
+            uploadArea.addEventListener(evento, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach((evento) => {
+            uploadArea.addEventListener(evento, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Só remove o destaque se realmente saiu da área (evita "piscar" ao passar
+                // por cima dos elementos filhos, como o botão e os textos)
+                if (!uploadArea.contains(e.relatedTarget)) {
+                    uploadArea.classList.remove('drag-over');
+                }
+            });
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files && e.dataTransfer.files[0];
+            handleFile(file);
         });
 
         novaDataInput.addEventListener('input', function(e) {

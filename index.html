@@ -20,11 +20,12 @@
 <body>
 <div class="container" id="app">
     <h1><i class="fas fa-file-invoice" style="color:#1d4b77;"></i> Aprovação de Pagamentos <span class="sub">BIMER</span></h1>
-    <div class="upload-area">
+    <div class="upload-area" id="upload-area">
         <label for="file-input"><i class="fas fa-cloud-upload-alt"></i> Importar planilha</label>
         <input type="file" id="file-input" accept=".xls,.xlsx,.csv">
         <span id="file-status">Nenhum arquivo carregado</span>
         <span class="resumo-info" id="qtdRegistros">0 registros</span>
+        <span class="drop-hint" id="drop-hint"><i class="fas fa-arrow-down"></i> ou arraste o arquivo aqui</span>
     </div>
 
     <!-- Totais -->
