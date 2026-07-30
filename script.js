@@ -93,25 +93,15 @@
         // Formatar data para exibição
         function formatarDataParaExibicao(dataStr) {
             if (!dataStr) return '—';
+            dataStr = String(dataStr).trim();
+            // Remove eventual componente de hora junto (ex: "30/07/2026 00:00:00")
+            dataStr = dataStr.split(' ')[0];
             if (dataStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dataStr;
             const partes = dataStr.split('-');
-            if (partes.length === 3) {
+            if (partes.length === 3 && partes[0].length === 4) {
                 return `${partes[2]}/${partes[1]}/${partes[0]}`;
             }
             return dataStr;
-        }
-
-        // Formatar uma data vinda da planilha (objeto Date do SheetJS) para dd/mm/aaaa,
-        // usando os métodos UTC para não sofrer o deslocamento de fuso horário (-1 dia)
-        function formatarDataExcel(valor) {
-            if (!valor) return '';
-            if (valor instanceof Date && !isNaN(valor)) {
-                const dia = String(valor.getUTCDate()).padStart(2, '0');
-                const mes = String(valor.getUTCMonth() + 1).padStart(2, '0');
-                const ano = valor.getUTCFullYear();
-                return `${dia}/${mes}/${ano}`;
-            }
-            return String(valor).trim();
         }
 
         // Calcula o próximo dia útil (pula sábados e domingos) a partir de hoje,
@@ -154,6 +144,17 @@
                     defval: '',
                     blankrows: false 
                 });
+
+                // Versão "textual" da mesma planilha: aqui os valores vêm exatamente como
+                // o Excel EXIBE na célula (respeitando o formato de data configurado na
+                // planilha de origem), sem passar por objeto Date/conversão de fuso horário.
+                // Usada só para extrair a Dt. Vencimento corretamente, evitando o problema
+                // de "-1 dia" que pode ocorrer ao converter datas via objetos Date/UTC.
+                const jsonTextual = XLSX.utils.sheet_to_json(firstSheet, {
+                    defval: '',
+                    blankrows: false,
+                    raw: false
+                });
                 
                 console.log('Total de linhas lidas:', json.length);
                 
@@ -182,11 +183,15 @@
                 }
 
                 // Filtrar linhas que têm pelo menos Nome da pessoa ou Empresa preenchidos
-                const linhasValidas = json.filter(row => {
-                    const nome = getVal(row, 'Nome da pessoa');
-                    const empresa = getVal(row, 'Empresa');
-                    return nome || empresa;
-                });
+                // (mantendo o "par" json/jsonTextual de cada linha, pois json e jsonTextual
+                // têm a mesma ordem/quantidade de linhas)
+                const linhasValidas = json
+                    .map((row, i) => ({ row, textRow: jsonTextual[i] || {} }))
+                    .filter(({ row }) => {
+                        const nome = getVal(row, 'Nome da pessoa');
+                        const empresa = getVal(row, 'Empresa');
+                        return nome || empresa;
+                    });
 
                 console.log('Linhas válidas encontradas:', linhasValidas.length);
 
@@ -195,7 +200,7 @@
                     return;
                 }
 
-                registros = linhasValidas.map((row, idx) => {
+                registros = linhasValidas.map(({ row, textRow }, idx) => {
                     const get = (label) => {
                         const cleanLabel = label.replace(/[:：]/g, '').trim();
                         return getVal(row, cleanLabel);
@@ -217,11 +222,12 @@
                         vlAberto = 0;
                     }
 
-                    // Dt. venc. programado - pega o valor BRUTO da célula (pode ser um objeto Date
-                    // do SheetJS), pois passar por getVal() converteria a data em texto errado
+                    // Dt. venc. programado - pega o valor da versão TEXTUAL da planilha
+                    // (jsonTextual/textRow), ou seja, exatamente como a data aparece
+                    // formatada na planilha de origem, sem risco de deslocamento por fuso
                     const chaveDtVenc = colMap['Dt. venc. programado'];
-                    const dtVencRaw = chaveDtVenc !== undefined ? row[chaveDtVenc] : '';
-                    const dtVencimento = formatarDataExcel(dtVencRaw);
+                    const dtVencTexto = chaveDtVenc !== undefined ? String(textRow[chaveDtVenc] ?? '').trim() : '';
+                    const dtVencimento = formatarDataParaExibicao(dtVencTexto) || dtVencTexto;
                     
                     // Monta o campo único "Dados de Pagamento" a partir de Chave PIX, Nr. agência
                     // e C/C fornecedor (cada um em sua própria linha, só entra se tiver valor)
