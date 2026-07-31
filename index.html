@@ -65,10 +65,31 @@
         <input type="text" id="filter-nome" placeholder="Filtrar pessoa...">
     </div>
 
+    <!-- Barra de ações em massa (só aparece quando há itens selecionados) -->
+    <div class="bulk-bar" id="bulkBar">
+        <span class="bulk-count"><i class="fas fa-check-square"></i> <span id="bulkCount">0</span> selecionado(s)</span>
+        <div class="bulk-actions">
+            <button class="btn-aprovar" id="bulkAprovar"><i class="fas fa-check"></i> Aprovar</button>
+            <button class="btn-negar" id="bulkNegar"><i class="fas fa-times"></i> Negar</button>
+            <button class="btn-analise" id="bulkAnalise"><i class="fas fa-clock"></i> Análise</button>
+            <button class="btn-limpar-selecao" id="bulkLimpar"><i class="fas fa-times-circle"></i> Limpar seleção</button>
+        </div>
+    </div>
+
+    <!-- "Selecionar todos" para o layout mobile (no desktop essa opção já fica no
+         cabeçalho da tabela, mas no mobile o cabeçalho fica oculto) -->
+    <div class="mobile-select-all" id="mobileSelectAllBar">
+        <label>
+            <input type="checkbox" id="selecionarTodosMobile">
+            Selecionar todos os visíveis
+        </label>
+    </div>
+
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
+                    <th class="th-checkbox"><input type="checkbox" id="selecionarTodos" title="Selecionar todos os visíveis"></th>
                     <th>Empresa</th>
                     <th>Pessoa</th>
                     <th>Nr. Título</th>
@@ -84,7 +105,7 @@
             </thead>
             <tbody id="table-body">
                 <tr>
-                    <td colspan="11">
+                    <td colspan="12">
                         <div class="empty-state">
                             <i class="fas fa-file-upload"></i>
                             <p>Carregue uma planilha para começar</p>
@@ -106,6 +127,7 @@
     <div class="data-modal">
         <h3><i class="fas fa-calendar-alt"></i> Nova Data de Vencimento</h3>
         <p class="info-text">Informe a nova data de vencimento para este título:</p>
+        <p class="info-qtd-negacao" id="infoQtdNegacao" style="display:none;"></p>
         <input type="text" class="data-input" id="novaDataInput" placeholder="DD/MM/AAAA" maxlength="10">
         <div class="aviso-fim-semana" id="avisoFimSemana">
             <i class="fas fa-exclamation-triangle"></i> ⚠️ Atenção: Esta data cai em um <strong>FIM DE SEMANA</strong> (Sábado ou Domingo). Considere alterar para o próximo dia útil.

@@ -2,8 +2,10 @@
         // ----- ESTADO -----
         let registros = [];
         let colMap = {};
-        let pendingNegateId = null;
+        let pendingNegateIds = []; // ids envolvidos na negação em andamento (1 = individual, várias = em massa)
         let flatpickrInstance = null;
+        let selecionados = new Set(); // ids dos lançamentos marcados para ação em massa
+        let ultimosFiltrados = []; // últimos registros exibidos na tabela (respeitando aba/filtros)
 
         // referências
         const tbody = document.getElementById('table-body');
@@ -16,6 +18,15 @@
         const filterNome = document.getElementById('filter-nome');
         const tabsBar = document.getElementById('tabsBar');
         let abaAtual = 'Pendente'; // guia ativa: Pendente, Em análise, Aprovado, Negado ou '' (Todos)
+
+        const selecionarTodosCheckbox = document.getElementById('selecionarTodos');
+        const selecionarTodosMobileCheckbox = document.getElementById('selecionarTodosMobile');
+        const bulkBar = document.getElementById('bulkBar');
+        const bulkCount = document.getElementById('bulkCount');
+        const bulkAprovar = document.getElementById('bulkAprovar');
+        const bulkNegar = document.getElementById('bulkNegar');
+        const bulkAnalise = document.getElementById('bulkAnalise');
+        const bulkLimpar = document.getElementById('bulkLimpar');
 
         const obsModal = document.getElementById('obsModal');
         const obsTexto = document.getElementById('obs-texto');
@@ -261,6 +272,7 @@
 
                 console.log('Registros processados:', registros.length);
 
+                selecionados.clear();
                 fileStatus.textContent = `✅ ${nomeArquivo || 'planilha'}`;
                 qtdRegistros.textContent = `${registros.length} registros`;
                 renderTable();
@@ -285,11 +297,12 @@
                 if (abaAtual && r.status !== abaAtual) return false;
                 return true;
             });
+            ultimosFiltrados = filtered;
 
             if (registros.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="11" class="td-full">
+                        <td colspan="12" class="td-full">
                                 <i class="fas fa-file-upload"></i>
                                 <p>Carregue uma planilha para começar</p>
                                 <p style="font-size:13px; margin-top:8px; color:#8aa3c0;">Clique em "Importar planilha" para selecionar o arquivo</p>
@@ -297,12 +310,14 @@
                         </td>
                     </tr>
                 `;
+                atualizarBarraSelecao();
                 return;
             }
 
             if (filtered.length === 0) {
                 const nomeAba = abaAtual || 'Todos';
-                tbody.innerHTML = `<tr><td colspan="11" class="td-full" style="text-align:center; padding:24px; color:#6e8aaa;">Nenhum registro em "${escHtml(nomeAba)}" com esses filtros</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="12" class="td-full" style="text-align:center; padding:24px; color:#6e8aaa;">Nenhum registro em "${escHtml(nomeAba)}" com esses filtros</td></tr>`;
+                atualizarBarraSelecao();
                 return;
             }
 
@@ -317,6 +332,7 @@
                 const dataExibicao = formatarDataParaExibicao(r.novoVencimento);
 
                 html += `<tr>
+                    <td class="td-checkbox" data-label="Selecionar"><input type="checkbox" class="row-checkbox" data-idx="${r.id}" ${selecionados.has(r.id) ? 'checked' : ''}></td>
                     <td class="badge-empresa" data-label="Empresa">${escHtml(r.empresa)}</td>
                     <td data-label="Pessoa">${escHtml(r.nomePessoa)}</td>
                     <td data-label="Nr. Título">${r.nrTitulo ? `<span class="nr-titulo"><i class="fas fa-hashtag"></i> ${escHtml(r.nrTitulo)}</span>` : '—'}</td>
@@ -343,21 +359,21 @@
             tbody.innerHTML = html;
 
             // Eventos dos botões
-            document.querySelectorAll('.btn-aprovar').forEach(btn => {
+            tbody.querySelectorAll('.btn-aprovar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(btn.dataset.idx);
                     setStatus(idx, 'Aprovado', '');
                 });
             });
 
-            document.querySelectorAll('.btn-negar').forEach(btn => {
+            tbody.querySelectorAll('.btn-negar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(btn.dataset.idx);
                     abrirModalData(idx);
                 });
             });
 
-            document.querySelectorAll('.btn-analise').forEach(btn => {
+            tbody.querySelectorAll('.btn-analise').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(btn.dataset.idx);
                     setStatus(idx, 'Em análise', proximoDiaUtil());
@@ -365,7 +381,7 @@
             });
 
             // Observação modal
-            document.querySelectorAll('.btn-pequeno').forEach(btn => {
+            tbody.querySelectorAll('.btn-pequeno').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(btn.dataset.idx);
                     const reg = registros.find(r => r.id === idx);
@@ -375,14 +391,66 @@
                     }
                 });
             });
+
+            // Checkbox de cada linha (seleção para ações em massa)
+            tbody.querySelectorAll('.row-checkbox').forEach(chk => {
+                chk.addEventListener('change', (e) => {
+                    const idx = parseInt(chk.dataset.idx);
+                    if (chk.checked) {
+                        selecionados.add(idx);
+                    } else {
+                        selecionados.delete(idx);
+                    }
+                    atualizarBarraSelecao();
+                });
+            });
+
+            atualizarBarraSelecao();
         }
 
-        // Abrir modal de data
-        function abrirModalData(idx) {
-            pendingNegateId = idx;
+        // Atualiza a barra de ações em massa (contador, visibilidade) e o estado dos
+        // checkboxes "selecionar todos" (desktop e mobile) com base nos registros
+        // atualmente visíveis na tabela
+        function atualizarBarraSelecao() {
+            if (bulkCount) bulkCount.textContent = selecionados.size;
+            if (bulkBar) bulkBar.classList.toggle('active', selecionados.size > 0);
+
+            if (ultimosFiltrados.length === 0) {
+                setCheckboxState(selecionarTodosCheckbox, false, false);
+                setCheckboxState(selecionarTodosMobileCheckbox, false, false);
+                return;
+            }
+            const idsVisiveis = ultimosFiltrados.map(r => r.id);
+            const qtdSelecionadosVisiveis = idsVisiveis.filter(id => selecionados.has(id)).length;
+            const todosSelecionados = qtdSelecionadosVisiveis === idsVisiveis.length;
+            const algunsSelecionados = qtdSelecionadosVisiveis > 0 && qtdSelecionadosVisiveis < idsVisiveis.length;
+
+            setCheckboxState(selecionarTodosCheckbox, todosSelecionados, algunsSelecionados);
+            setCheckboxState(selecionarTodosMobileCheckbox, todosSelecionados, algunsSelecionados);
+        }
+
+        // Atualiza checked/indeterminate de um checkbox só se ele realmente existir no
+        // HTML (protege contra páginas com cache desatualizado/mesclando versões antigas)
+        function setCheckboxState(checkbox, checked, indeterminate) {
+            if (!checkbox) return;
+            checkbox.checked = checked;
+            checkbox.indeterminate = indeterminate;
+        }
+
+        // Abrir modal de data - aceita um único id ou uma lista de ids (ação em massa)
+        function abrirModalData(idOuIds) {
+            pendingNegateIds = Array.isArray(idOuIds) ? idOuIds : [idOuIds];
             novaDataInput.value = '';
             avisoFimSemana.classList.remove('active');
             dataModal.classList.add('active');
+
+            const infoQtd = document.getElementById('infoQtdNegacao');
+            if (infoQtd) {
+                infoQtd.textContent = pendingNegateIds.length > 1
+                    ? `Aplicando a ${pendingNegateIds.length} lançamentos selecionados.`
+                    : '';
+                infoQtd.style.display = pendingNegateIds.length > 1 ? 'block' : 'none';
+            }
             
             setTimeout(() => {
                 novaDataInput.focus();
@@ -439,7 +507,7 @@
         // Fechar modal de data
         function fecharModalData() {
             dataModal.classList.remove('active');
-            pendingNegateId = null;
+            pendingNegateIds = [];
             avisoFimSemana.classList.remove('active');
             if (flatpickrInstance) {
                 flatpickrInstance.setDate(null);
@@ -477,22 +545,32 @@
                 }
             }
 
-            if (pendingNegateId !== null) {
-                setStatus(pendingNegateId, 'Negado', dataStr);
+            if (pendingNegateIds && pendingNegateIds.length) {
+                setStatus(pendingNegateIds, 'Negado', dataStr);
                 fecharModalData();
             }
         }
 
-        // Set status
-        function setStatus(id, novoStatus, novoVenc) {
-            const reg = registros.find(r => r.id === id);
-            if (!reg) return;
+        // Aplica o novo status/nova data a um único registro (sem re-renderizar)
+        function aplicarStatusRegistro(reg, novoStatus, novoVenc) {
             reg.status = novoStatus;
             if (novoStatus === 'Negado' || novoStatus === 'Em análise') {
                 reg.novoVencimento = novoVenc || '';
             } else {
                 reg.novoVencimento = '';
             }
+        }
+
+        // Set status - aceita um único id (number) ou uma lista de ids (array),
+        // usado tanto pelos botões de ação de cada linha quanto pelas ações em massa
+        function setStatus(idOuIds, novoStatus, novoVenc) {
+            const ids = Array.isArray(idOuIds) ? idOuIds : [idOuIds];
+            ids.forEach(id => {
+                const reg = registros.find(r => r.id === id);
+                if (reg) aplicarStatusRegistro(reg, novoStatus, novoVenc);
+            });
+            // Remove da seleção os itens que acabaram de ser processados
+            ids.forEach(id => selecionados.delete(id));
             renderTable();
         }
 
@@ -798,6 +876,59 @@
             if (!btn) return;
             trocarAba(btn.dataset.status);
         });
+
+        // ----- Seleção em massa -----
+
+        // Checkbox "selecionar todos" (desktop, no cabeçalho da tabela, e mobile, na
+        // barra acima da tabela): marca/desmarca todos os itens atualmente visíveis
+        function alternarSelecionarTodos(marcar) {
+            if (marcar) {
+                ultimosFiltrados.forEach(r => selecionados.add(r.id));
+            } else {
+                ultimosFiltrados.forEach(r => selecionados.delete(r.id));
+            }
+            renderTable();
+        }
+
+        if (selecionarTodosCheckbox) {
+            selecionarTodosCheckbox.addEventListener('change', function() {
+                alternarSelecionarTodos(selecionarTodosCheckbox.checked);
+            });
+        }
+
+        if (selecionarTodosMobileCheckbox) {
+            selecionarTodosMobileCheckbox.addEventListener('change', function() {
+                alternarSelecionarTodos(selecionarTodosMobileCheckbox.checked);
+            });
+        }
+
+        if (bulkLimpar) {
+            bulkLimpar.addEventListener('click', function() {
+                selecionados.clear();
+                renderTable();
+            });
+        }
+
+        if (bulkAprovar) {
+            bulkAprovar.addEventListener('click', function() {
+                if (selecionados.size === 0) return;
+                setStatus(Array.from(selecionados), 'Aprovado', '');
+            });
+        }
+
+        if (bulkAnalise) {
+            bulkAnalise.addEventListener('click', function() {
+                if (selecionados.size === 0) return;
+                setStatus(Array.from(selecionados), 'Em análise', proximoDiaUtil());
+            });
+        }
+
+        if (bulkNegar) {
+            bulkNegar.addEventListener('click', function() {
+                if (selecionados.size === 0) return;
+                abrirModalData(Array.from(selecionados));
+            });
+        }
 
         // Inicialização vazia
         // Nenhum dado de exemplo
