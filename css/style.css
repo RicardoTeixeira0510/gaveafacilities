@@ -231,7 +231,7 @@
             margin: 10px 0 22px;
             align-items: center;
         }
-        .filters input, .filters select {
+        .filters input:not([type="checkbox"]), .filters select {
             padding: 8px 16px;
             border-radius: 40px;
             border: 1px solid #d6e2ef;
@@ -244,6 +244,208 @@
             border-color: #1d4b77;
             box-shadow: 0 0 0 2px rgba(29,75,119,0.2);
         }
+
+        /* ----- Filtros de múltipla seleção (dropdowns) ----- */
+        .filtro-dropdown {
+            position: relative;
+        }
+        .filtro-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 40px;
+            border: 1px solid #d6e2ef;
+            background: white;
+            font-size: 13px;
+            font-weight: 600;
+            color: #3e5e7a;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .filtro-btn:hover {
+            border-color: #1d4b77;
+        }
+        .filtro-dropdown.open .filtro-btn,
+        .filtro-dropdown.filtro-ativo .filtro-btn {
+            border-color: #1d4b77;
+            background: #eaf1fc;
+            color: #0b2b4a;
+        }
+        .filtro-seta {
+            font-size: 10px;
+            transition: transform 0.15s;
+        }
+        .filtro-dropdown.open .filtro-seta {
+            transform: rotate(180deg);
+        }
+        .filtro-badge {
+            display: none;
+            background: #1d4b77;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            padding: 3px 7px;
+            border-radius: 20px;
+        }
+        .filtro-dropdown.filtro-ativo .filtro-badge {
+            display: inline-block;
+        }
+        .filtro-panel {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            z-index: 20;
+            width: 320px;
+            max-width: 90vw;
+            background: white;
+            border: 1px solid #d6e2ef;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(11,43,74,0.15);
+            padding: 12px;
+        }
+        .filtro-dropdown.open .filtro-panel {
+            display: block;
+        }
+        .filtro-busca {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid #d6e2ef;
+            font-size: 13px;
+            outline: none;
+            margin-bottom: 8px;
+            box-sizing: border-box;
+        }
+        .filtro-busca:focus {
+            border-color: #1d4b77;
+        }
+        .filtro-panel-acoes {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .filtro-panel-acoes button {
+            flex: 1;
+            background: #f0f5fe;
+            border: 1px solid #d6e2ef;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #3e5e7a;
+            cursor: pointer;
+        }
+        .filtro-panel-acoes button:hover {
+            background: #dbe6f5;
+        }
+        .filtro-opcoes {
+            max-height: 260px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .filtro-opcao {
+            display: grid;
+            grid-template-columns: 16px 1fr auto;
+            align-items: start;
+            gap: 10px;
+            padding: 7px 6px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e3b5a;
+            cursor: pointer;
+        }
+        .filtro-opcao:hover {
+            background: #f0f5fe;
+        }
+        .filtro-opcao input {
+            width: 16px;
+            height: 16px;
+            max-width: 16px;
+            min-width: 16px;
+            cursor: pointer;
+            accent-color: #1d4b77;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .filtro-opcao .filtro-opcao-texto {
+            min-width: 0;
+            overflow: hidden;
+            white-space: normal;
+            overflow-wrap: break-word;
+            word-break: normal;
+            line-height: 1.35;
+        }
+        .filtro-opcao .filtro-opcao-count {
+            font-size: 11px;
+            color: #8aa3c0;
+            flex-shrink: 0;
+            background: #f0f5fe;
+            border-radius: 20px;
+            padding: 2px 8px;
+            margin-top: 1px;
+        }
+        .filtro-vazio {
+            font-size: 12px;
+            color: #8aa3c0;
+            text-align: center;
+            padding: 10px 0;
+        }
+        .filtro-limpar-todos {
+            background: transparent;
+            color: #b23b3b;
+            border: 1px dashed #e6b8b8;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filtro-limpar-todos:hover {
+            background: #fdf0f0;
+        }
+
+        /* ----- Barra de total filtrado ----- */
+        .total-filtrado-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            background: #eefaf3;
+            border: 1px solid #bfe6cf;
+            border-radius: 14px;
+            padding: 12px 18px;
+            margin: 0 0 18px;
+        }
+        .total-filtrado-bar.active {
+            display: flex;
+        }
+        .total-filtrado-label {
+            color: #0f6b3d;
+            font-weight: 700;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .total-filtrado-label span {
+            font-weight: 500;
+            color: #3e8a63;
+        }
+        .total-filtrado-valor {
+            color: #0f6b3d;
+            font-weight: 800;
+            font-size: 18px;
+        }
+
         .table-wrap {
             overflow-x: auto;
             margin: 10px 0 20px;
@@ -279,6 +481,10 @@
             font-weight: 600;
             color: #0b2b4a;
             font-size: 12px;
+            white-space: nowrap;
+        }
+        .pessoa-cell {
+            white-space: nowrap;
         }
         .valor {
             font-weight: 600;
@@ -720,6 +926,31 @@
                 width: 100%;
                 min-width: 0;
             }
+            .filtro-dropdown {
+                width: 100%;
+            }
+            .filtro-btn {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .filtro-panel {
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            .filtro-limpar-todos {
+                width: 100%;
+                justify-content: center;
+            }
+
+            /* Total filtrado empilhado no mobile */
+            .total-filtrado-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .total-filtrado-valor {
+                align-self: flex-end;
+            }
 
             /* Barra de ações em massa empilhada no mobile */
             .bulk-bar {
@@ -825,6 +1056,13 @@
             }
             td[data-label="Ações"]::before {
                 margin-bottom: 6px;
+            }
+            /* No card mobile não há rolagem lateral, então aqui sim
+               Empresa e Pessoa podem quebrar linha normalmente */
+            .badge-empresa,
+            .pessoa-cell {
+                white-space: normal;
+                text-align: right;
             }
             .btn-group {
                 width: 100%;

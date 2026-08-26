@@ -59,10 +59,91 @@
         </button>
     </div>
 
-    <!-- Filtros -->
-    <div class="filters">
-        <input type="text" id="filter-empresa" placeholder="Filtrar empresa...">
-        <input type="text" id="filter-nome" placeholder="Filtrar pessoa...">
+    <!-- Filtros (múltipla seleção, com base nos valores carregados da planilha) -->
+    <div class="filters" id="filtersBar">
+        <div class="filtro-dropdown" data-campo="empresa">
+            <button type="button" class="filtro-btn" id="filtro-empresa-btn">
+                <i class="fas fa-building"></i> Empresa
+                <span class="filtro-badge" id="filtro-empresa-badge">0</span>
+                <i class="fas fa-chevron-down filtro-seta"></i>
+            </button>
+            <div class="filtro-panel" id="filtro-empresa-panel">
+                <input type="text" class="filtro-busca" id="filtro-empresa-busca" placeholder="Buscar empresa...">
+                <div class="filtro-panel-acoes">
+                    <button type="button" data-acao="todos">Marcar todos</button>
+                    <button type="button" data-acao="nenhum">Limpar</button>
+                </div>
+                <div class="filtro-opcoes" id="filtro-empresa-opcoes">
+                    <p class="filtro-vazio">Importe uma planilha para ver as opções</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="filtro-dropdown" data-campo="pessoa">
+            <button type="button" class="filtro-btn" id="filtro-pessoa-btn">
+                <i class="fas fa-user"></i> Pessoa
+                <span class="filtro-badge" id="filtro-pessoa-badge">0</span>
+                <i class="fas fa-chevron-down filtro-seta"></i>
+            </button>
+            <div class="filtro-panel" id="filtro-pessoa-panel">
+                <input type="text" class="filtro-busca" id="filtro-pessoa-busca" placeholder="Buscar pessoa...">
+                <div class="filtro-panel-acoes">
+                    <button type="button" data-acao="todos">Marcar todos</button>
+                    <button type="button" data-acao="nenhum">Limpar</button>
+                </div>
+                <div class="filtro-opcoes" id="filtro-pessoa-opcoes">
+                    <p class="filtro-vazio">Importe uma planilha para ver as opções</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="filtro-dropdown" data-campo="natureza">
+            <button type="button" class="filtro-btn" id="filtro-natureza-btn">
+                <i class="fas fa-tags"></i> Natureza
+                <span class="filtro-badge" id="filtro-natureza-badge">0</span>
+                <i class="fas fa-chevron-down filtro-seta"></i>
+            </button>
+            <div class="filtro-panel" id="filtro-natureza-panel">
+                <input type="text" class="filtro-busca" id="filtro-natureza-busca" placeholder="Buscar natureza...">
+                <div class="filtro-panel-acoes">
+                    <button type="button" data-acao="todos">Marcar todos</button>
+                    <button type="button" data-acao="nenhum">Limpar</button>
+                </div>
+                <div class="filtro-opcoes" id="filtro-natureza-opcoes">
+                    <p class="filtro-vazio">Importe uma planilha para ver as opções</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="filtro-dropdown" data-campo="centroCusto">
+            <button type="button" class="filtro-btn" id="filtro-centroCusto-btn">
+                <i class="fas fa-layer-group"></i> Centro de Custo
+                <span class="filtro-badge" id="filtro-centroCusto-badge">0</span>
+                <i class="fas fa-chevron-down filtro-seta"></i>
+            </button>
+            <div class="filtro-panel" id="filtro-centroCusto-panel">
+                <input type="text" class="filtro-busca" id="filtro-centroCusto-busca" placeholder="Buscar centro de custo...">
+                <div class="filtro-panel-acoes">
+                    <button type="button" data-acao="todos">Marcar todos</button>
+                    <button type="button" data-acao="nenhum">Limpar</button>
+                </div>
+                <div class="filtro-opcoes" id="filtro-centroCusto-opcoes">
+                    <p class="filtro-vazio">Importe uma planilha para ver as opções</p>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" class="filtro-limpar-todos" id="limparTodosFiltros" style="display:none;">
+            <i class="fas fa-times-circle"></i> Limpar filtros
+        </button>
+    </div>
+
+    <!-- Total do que está sendo exibido de acordo com os filtros/guia atuais -->
+    <div class="total-filtrado-bar" id="totalFiltradoBar">
+        <span class="total-filtrado-label">
+            <i class="fas fa-filter"></i> Total filtrado <span id="qtdFiltradosBadge">(0 títulos)</span>
+        </span>
+        <span class="total-filtrado-valor" id="totalFiltradoValor">R$ 0,00</span>
     </div>
 
     <!-- Barra de ações em massa (só aparece quando há itens selecionados) -->
@@ -96,7 +177,7 @@
                     <th>Dt. Vencimento</th>
                     <th>Natureza</th>
                     <th>Centro(s) de custo</th>
-                    <th>Vl. título</th>
+                    <th>Vl. em aberto</th>
                     <th>Observação</th>
                     <th>Status</th>
                     <th>Novo venc.</th>

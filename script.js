@@ -7,15 +7,36 @@
         let selecionados = new Set(); // ids dos lançamentos marcados para ação em massa
         let ultimosFiltrados = []; // últimos registros exibidos na tabela (respeitando aba/filtros)
 
+        // Configuração dos filtros de múltipla seleção. Cada campo vira um dropdown
+        // com checkboxes montado a partir dos valores realmente carregados da planilha
+        const FILTROS_CONFIG = [
+            { campo: 'empresa', getValor: r => r.empresa },
+            { campo: 'pessoa', getValor: r => r.nomePessoa },
+            { campo: 'natureza', getValor: r => r.natureza },
+            { campo: 'centroCusto', getValor: r => r.centroCusto },
+        ];
+        // Guarda os valores marcados em cada filtro. Conjunto vazio = sem restrição (mostra tudo)
+        let filtrosSelecionados = {
+            empresa: new Set(),
+            pessoa: new Set(),
+            natureza: new Set(),
+            centroCusto: new Set(),
+        };
+
         // referências
         const tbody = document.getElementById('table-body');
+        const tabela = tbody.closest('table');
+        const theadCells = tabela ? Array.from(tabela.querySelectorAll('thead th')) : [];
+        let largurasColunasFixadas = false;
         const fileInput = document.getElementById('file-input');
         const fileStatus = document.getElementById('file-status');
         const qtdRegistros = document.getElementById('qtdRegistros');
         const totalGeralAbertoEl = document.getElementById('totalGeralAberto');
         const totalAprovadoEl = document.getElementById('totalAprovado');
-        const filterEmpresa = document.getElementById('filter-empresa');
-        const filterNome = document.getElementById('filter-nome');
+        const totalFiltradoBar = document.getElementById('totalFiltradoBar');
+        const totalFiltradoValorEl = document.getElementById('totalFiltradoValor');
+        const qtdFiltradosBadgeEl = document.getElementById('qtdFiltradosBadge');
+        const limparTodosFiltrosBtn = document.getElementById('limparTodosFiltros');
         const tabsBar = document.getElementById('tabsBar');
         let abaAtual = 'Pendente'; // guia ativa: Pendente, Em análise, Aprovado, Negado ou '' (Todos)
 
@@ -85,6 +106,93 @@
                 btn.classList.toggle('active', btn.dataset.status === novoStatus);
             });
             renderTable();
+        }
+
+        // Atualiza a barra "Total filtrado" com a soma do Vl. em Aberto e a quantidade
+        // de títulos exibidos no momento (respeitando guia + todos os filtros ativos)
+        function atualizarTotalFiltrado(filtered) {
+            if (!totalFiltradoBar) return;
+            if (registros.length === 0) {
+                totalFiltradoBar.classList.remove('active');
+                return;
+            }
+            totalFiltradoBar.classList.add('active');
+            const total = filtered.reduce((soma, r) => soma + Math.abs(r.vlAberto || 0), 0);
+            totalFiltradoValorEl.textContent = formatarValor(total);
+            qtdFiltradosBadgeEl.textContent = `(${filtered.length} título${filtered.length === 1 ? '' : 's'})`;
+        }
+
+        // ----- Filtros de múltipla seleção (Empresa, Pessoa, Natureza, Centro de Custo) -----
+
+        // Escapa um valor para uso seguro dentro de um atributo HTML
+        function escAttr(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        }
+
+        // Recalcula as opções (com contagem de títulos) de cada filtro a partir dos
+        // registros recém-carregados, e reseta a seleção anterior de cada um
+        function popularFiltros() {
+            FILTROS_CONFIG.forEach(({ campo, getValor }) => {
+                filtrosSelecionados[campo] = new Set();
+
+                const contagem = new Map();
+                registros.forEach(r => {
+                    const valor = getValor(r) || 'N/A';
+                    contagem.set(valor, (contagem.get(valor) || 0) + 1);
+                });
+
+                const valoresOrdenados = Array.from(contagem.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+                const container = document.getElementById(`filtro-${campo}-opcoes`);
+                if (container) {
+                    container.innerHTML = valoresOrdenados.length === 0
+                        ? '<p class="filtro-vazio">Nenhum valor encontrado</p>'
+                        : valoresOrdenados.map(valor => `
+                            <label class="filtro-opcao">
+                                <input type="checkbox" value="${escAttr(valor)}">
+                                <span class="filtro-opcao-texto">${escHtml(valor)}</span>
+                                <span class="filtro-opcao-count">${contagem.get(valor)}</span>
+                            </label>
+                        `).join('');
+                }
+
+                const busca = document.getElementById(`filtro-${campo}-busca`);
+                if (busca) busca.value = '';
+
+                atualizarBadgeFiltro(campo);
+            });
+        }
+
+        // Atualiza o número no badge do botão do filtro e o destaque visual (se está ativo)
+        function atualizarBadgeFiltro(campo) {
+            const qtd = filtrosSelecionados[campo].size;
+            const badge = document.getElementById(`filtro-${campo}-badge`);
+            const dropdown = document.querySelector(`.filtro-dropdown[data-campo="${campo}"]`);
+            if (badge) badge.textContent = qtd;
+            if (dropdown) dropdown.classList.toggle('filtro-ativo', qtd > 0);
+            atualizarVisibilidadeLimparTodos();
+        }
+
+        // Mostra/esconde o botão "Limpar filtros" conforme existir algum filtro ativo
+        function atualizarVisibilidadeLimparTodos() {
+            if (!limparTodosFiltrosBtn) return;
+            const algumAtivo = FILTROS_CONFIG.some(({ campo }) => filtrosSelecionados[campo].size > 0);
+            limparTodosFiltrosBtn.style.display = algumAtivo ? 'inline-flex' : 'none';
+        }
+
+        // Converte uma data no formato dd/mm/aaaa para um objeto Date (à meia-noite local).
+        // Retorna null se a string não for uma data válida (usado nas validações de data)
+        function parseDataBr(dataStr) {
+            if (!dataStr) return null;
+            const partes = String(dataStr).trim().split('/');
+            if (partes.length !== 3) return null;
+            const dia = parseInt(partes[0]);
+            const mes = parseInt(partes[1]) - 1;
+            const ano = parseInt(partes[2]);
+            if (isNaN(dia) || isNaN(mes) || isNaN(ano)) return null;
+            const data = new Date(ano, mes, dia);
+            if (data.getFullYear() !== ano || data.getMonth() !== mes || data.getDate() !== dia) return null;
+            return data;
         }
 
         // Verificar se é fim de semana
@@ -273,9 +381,12 @@
                 console.log('Registros processados:', registros.length);
 
                 selecionados.clear();
+                destravarLargurasColunas();
+                popularFiltros();
                 fileStatus.textContent = `✅ ${nomeArquivo || 'planilha'}`;
                 qtdRegistros.textContent = `${registros.length} registros`;
                 renderTable();
+                travarLargurasColunas();
                 
             } catch (error) {
                 console.error('Erro ao ler planilha:', error);
@@ -283,21 +394,43 @@
             }
         }
 
+        // Trava a largura de cada coluna no tamanho em que já estava quando a
+        // planilha foi carregada, para que aplicar um filtro (pessoa, empresa,
+        // natureza, centro de custo, aba) não recalcule/estreite as colunas.
+        function travarLargurasColunas() {
+            if (!tabela || theadCells.length === 0) return;
+            theadCells.forEach(th => {
+                th.style.width = th.getBoundingClientRect().width + 'px';
+            });
+            tabela.style.tableLayout = 'fixed';
+            largurasColunasFixadas = true;
+        }
+
+        // Libera as larguras fixas (usado só ao importar uma nova planilha,
+        // para que as colunas voltem a se ajustar ao novo conteúdo antes de
+        // serem travadas novamente).
+        function destravarLargurasColunas() {
+            if (!tabela) return;
+            tabela.style.tableLayout = 'auto';
+            theadCells.forEach(th => { th.style.width = ''; });
+            largurasColunasFixadas = false;
+        }
+
         // Renderizar tabela
         function renderTable() {
             atualizarTotais();
             atualizarContadoresAbas();
 
-            const filtroEmp = filterEmpresa.value.toLowerCase().trim();
-            const filtroNome = filterNome.value.toLowerCase().trim();
-
             let filtered = registros.filter(r => {
-                if (filtroEmp && !r.empresa.toLowerCase().includes(filtroEmp)) return false;
-                if (filtroNome && !r.nomePessoa.toLowerCase().includes(filtroNome)) return false;
+                if (filtrosSelecionados.empresa.size && !filtrosSelecionados.empresa.has(r.empresa)) return false;
+                if (filtrosSelecionados.pessoa.size && !filtrosSelecionados.pessoa.has(r.nomePessoa)) return false;
+                if (filtrosSelecionados.natureza.size && !filtrosSelecionados.natureza.has(r.natureza)) return false;
+                if (filtrosSelecionados.centroCusto.size && !filtrosSelecionados.centroCusto.has(r.centroCusto)) return false;
                 if (abaAtual && r.status !== abaAtual) return false;
                 return true;
             });
             ultimosFiltrados = filtered;
+            atualizarTotalFiltrado(filtered);
 
             if (registros.length === 0) {
                 tbody.innerHTML = `
@@ -327,19 +460,19 @@
                                    r.status === 'Negado' ? 'status-negado' :
                                    r.status === 'Em análise' ? 'status-analise' : '';
                 const statusLabel = r.status || 'Pendente';
-                const valorFormatado = formatarValor(r.vlTitulo);
+                const valorFormatado = formatarValor(r.vlAberto);
                 const obsPreview = r.observacao.length > 30 ? r.observacao.slice(0, 30)+'…' : r.observacao;
                 const dataExibicao = formatarDataParaExibicao(r.novoVencimento);
 
                 html += `<tr>
                     <td class="td-checkbox" data-label="Selecionar"><input type="checkbox" class="row-checkbox" data-idx="${r.id}" ${selecionados.has(r.id) ? 'checked' : ''}></td>
                     <td class="badge-empresa" data-label="Empresa">${escHtml(r.empresa)}</td>
-                    <td data-label="Pessoa">${escHtml(r.nomePessoa)}</td>
+                    <td class="pessoa-cell" data-label="Pessoa">${escHtml(r.nomePessoa)}</td>
                     <td data-label="Nr. Título">${r.nrTitulo ? `<span class="nr-titulo"><i class="fas fa-hashtag"></i> ${escHtml(r.nrTitulo)}</span>` : '—'}</td>
                     <td data-label="Vencimento">${escHtml(r.dtVencimento)}</td>
                     <td data-label="Natureza">${escHtml(r.natureza)}</td>
                     <td data-label="Centro de custo">${escHtml(r.centroCusto)}</td>
-                    <td class="valor" data-label="Vl. título">${valorFormatado}</td>
+                    <td class="valor" data-label="Vl. em aberto">${valorFormatado}</td>
                     <td class="observacao-cell" data-label="Observação">
                         ${obsPreview ? `<button class="btn-pequeno" data-idx="${r.id}"><i class="fas fa-eye"></i> ver</button>` : '—'}
                     </td>
@@ -543,6 +676,26 @@
                 if (!confirm(`⚠️ ATENÇÃO: A data ${dataStr} cai em um ${diaSemana}.\n\nDeseja continuar mesmo assim?`)) {
                     return;
                 }
+            }
+
+            // Não permitir definir, ao negar, uma nova data igual ou anterior à
+            // data de vencimento original de cada título selecionado
+            const invalidos = [];
+            pendingNegateIds.forEach(id => {
+                const reg = registros.find(r => r.id === id);
+                if (!reg) return;
+                const dataVencOriginal = parseDataBr(reg.dtVencimento);
+                if (dataVencOriginal && data <= dataVencOriginal) {
+                    invalidos.push(reg);
+                }
+            });
+            if (invalidos.length) {
+                const lista = invalidos.slice(0, 6)
+                    .map(r => `• ${r.nomePessoa} — venc. original: ${r.dtVencimento}`)
+                    .join('\n');
+                const extra = invalidos.length > 6 ? `\n...e mais ${invalidos.length - 6} lançamento(s)` : '';
+                alert(`A nova data de vencimento precisa ser posterior à data de vencimento original do título (não pode ser igual nem anterior).\n\nCorrija a data para os lançamentos abaixo:\n${lista}${extra}`);
+                return;
             }
 
             if (pendingNegateIds && pendingNegateIds.length) {
@@ -868,8 +1021,81 @@
             if (e.target === obsModal) obsModal.classList.remove('active');
         });
 
-        filterEmpresa.addEventListener('input', renderTable);
-        filterNome.addEventListener('input', renderTable);
+        // ----- Filtros de múltipla seleção -----
+
+        // Abrir/fechar o painel de cada filtro (só um aberto por vez)
+        document.querySelectorAll('.filtro-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const dropdown = btn.closest('.filtro-dropdown');
+                const estavaAberto = dropdown.classList.contains('open');
+                document.querySelectorAll('.filtro-dropdown.open').forEach(d => d.classList.remove('open'));
+                if (!estavaAberto) dropdown.classList.add('open');
+            });
+        });
+
+        // Clicar fora de qualquer painel fecha todos
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.filtro-dropdown')) {
+                document.querySelectorAll('.filtro-dropdown.open').forEach(d => d.classList.remove('open'));
+            }
+        });
+
+        // Marcar/desmarcar uma opção dentro de um painel de filtro
+        document.querySelectorAll('.filtro-opcoes').forEach(container => {
+            container.addEventListener('change', (e) => {
+                if (e.target.type !== 'checkbox') return;
+                const campo = container.closest('.filtro-dropdown').dataset.campo;
+                const valor = e.target.value;
+                if (e.target.checked) filtrosSelecionados[campo].add(valor);
+                else filtrosSelecionados[campo].delete(valor);
+                atualizarBadgeFiltro(campo);
+                renderTable();
+            });
+        });
+
+        // Busca dentro do painel: filtra a LISTA DE OPÇÕES visível, não a tabela
+        document.querySelectorAll('.filtro-busca').forEach(input => {
+            input.addEventListener('input', () => {
+                const termo = input.value.toLowerCase();
+                const campo = input.closest('.filtro-dropdown').dataset.campo;
+                document.querySelectorAll(`#filtro-${campo}-opcoes .filtro-opcao`).forEach(opcao => {
+                    const texto = opcao.textContent.toLowerCase();
+                    opcao.style.display = texto.includes(termo) ? '' : 'none';
+                });
+            });
+        });
+
+        // "Marcar todos" / "Limpar" de cada painel (respeita a busca: só mexe no que está visível)
+        document.querySelectorAll('.filtro-panel-acoes button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const dropdown = btn.closest('.filtro-dropdown');
+                const campo = dropdown.dataset.campo;
+                const marcar = btn.dataset.acao === 'todos';
+                dropdown.querySelectorAll('.filtro-opcoes .filtro-opcao').forEach(opcao => {
+                    if (opcao.style.display === 'none') return;
+                    const checkbox = opcao.querySelector('input[type=checkbox]');
+                    if (!checkbox) return;
+                    checkbox.checked = marcar;
+                    if (marcar) filtrosSelecionados[campo].add(checkbox.value);
+                    else filtrosSelecionados[campo].delete(checkbox.value);
+                });
+                atualizarBadgeFiltro(campo);
+                renderTable();
+            });
+        });
+
+        // Limpar todos os filtros de uma só vez
+        if (limparTodosFiltrosBtn) {
+            limparTodosFiltrosBtn.addEventListener('click', () => {
+                FILTROS_CONFIG.forEach(({ campo }) => {
+                    filtrosSelecionados[campo] = new Set();
+                    document.querySelectorAll(`#filtro-${campo}-opcoes input[type=checkbox]`).forEach(cb => { cb.checked = false; });
+                    atualizarBadgeFiltro(campo);
+                });
+                renderTable();
+            });
+        }
 
         tabsBar.addEventListener('click', function(e) {
             const btn = e.target.closest('.tab-item');
