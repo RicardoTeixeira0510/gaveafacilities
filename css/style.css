@@ -118,6 +118,20 @@
             background: #dcf3e6;
             color: #0a4b2a;
         }
+        .total-atraso {
+            background: #fbe4e4;
+            color: #7f2a2a;
+        }
+        .total-label-sub {
+            font-weight: 400;
+            opacity: 0.85;
+            font-size: 11px;
+        }
+        .total-sub {
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0.9;
+        }
         .tabs-bar {
             display: flex;
             flex-wrap: wrap;
@@ -451,40 +465,64 @@
             margin: 10px 0 20px;
             border-radius: 18px;
             border: 1px solid #e9edf3;
+            width: 100%;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
             background: white;
+            table-layout: fixed;
         }
+        /* Larguras das colunas em %, somando 100%, para que a tabela sempre
+           caiba na largura disponível em vez de crescer conforme o conteúdo
+           (o que forçava rolagem horizontal em notebooks/telas menores) */
+        th:nth-child(1), td:nth-child(1)  { width: 3%; }
+        th:nth-child(2), td:nth-child(2)  { width: 9%; }
+        th:nth-child(3), td:nth-child(3)  { width: 10%; }
+        th:nth-child(4), td:nth-child(4)  { width: 6%; }
+        th:nth-child(5), td:nth-child(5)  { width: 12%; }
+        th:nth-child(6), td:nth-child(6)  { width: 9%; }
+        th:nth-child(7), td:nth-child(7)  { width: 9%; }
+        th:nth-child(8), td:nth-child(8)  { width: 8%; }
+        th:nth-child(9), td:nth-child(9)  { width: 7%; }
+        th:nth-child(10), td:nth-child(10) { width: 8%; }
+        th:nth-child(11), td:nth-child(11) { width: 8%; }
+        th:nth-child(12), td:nth-child(12) { width: 11%; }
         th {
             background: #eef3fa;
             color: #1a344d;
             font-weight: 600;
             padding: 12px 8px;
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-word;
             text-align: left;
             border-bottom: 2px solid #d0dcee;
             font-size: 12px;
+            line-height: 1.3;
         }
         td {
             padding: 12px 8px;
             border-bottom: 1px solid #e2e9f2;
             vertical-align: middle;
             background: white;
+            overflow-wrap: break-word;
         }
         tr:hover td {
             background: #f8faff;
+        }
+        .badge-empresa,
+        .pessoa-cell,
+        .natureza-cell,
+        .centro-cell {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .badge-empresa {
             font-weight: 600;
             color: #0b2b4a;
             font-size: 12px;
-            white-space: nowrap;
-        }
-        .pessoa-cell {
-            white-space: nowrap;
         }
         .valor {
             font-weight: 600;
@@ -496,6 +534,7 @@
             flex-wrap: wrap;
             gap: 4px;
             align-items: center;
+            justify-content: flex-start;
         }
         .btn-aprovar {
             background: #1f8b4c;
@@ -565,6 +604,33 @@
         .status-aprovado { background: #c7f0d9; color: #0a4b2a; }
         .status-negado { background: #f8d4d4; color: #7f2a2a; }
         .status-analise { background: #ffedc9; color: #7f5e1a; }
+
+        /* Data de vencimento: data programada + data original + indicador de atraso */
+        .venc-principal {
+            font-weight: 600;
+            color: #1a344d;
+        }
+        .venc-original {
+            font-size: 11px;
+            color: #6e8aaa;
+            margin-top: 2px;
+        }
+        .atraso-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+            padding: 2px 9px;
+            border-radius: 30px;
+            font-size: 10.5px;
+            font-weight: 700;
+            white-space: normal;
+            line-height: 1.3;
+        }
+        .atraso-ok { background: #c7f0d9; color: #0a4b2a; }
+        .atraso-baixo { background: #ffedc9; color: #7f5e1a; }
+        .atraso-medio { background: #fde0bf; color: #8a4a0f; }
+        .atraso-alto { background: #f8d4d4; color: #7f2a2a; }
         .observacao-cell {
             max-width: 150px;
             word-break: break-word;
@@ -860,6 +926,46 @@
         .btn-cancelar-share:hover { color: #5c7896; }
 
         /* =========================================================
+           RESPONSIVO — NOTEBOOK / TELAS MÉDIAS
+           A tabela continua em formato de tabela (não vira cartão),
+           mas fica mais compacta e os botões de ação passam a mostrar
+           só o ícone, para que tudo caiba na largura da tela sem
+           precisar arrastar a barra de rolagem horizontal.
+           ========================================================= */
+        @media (max-width: 1440px) {
+            table {
+                font-size: 12px;
+            }
+            th, td {
+                padding: 9px 6px;
+            }
+            .btn-aprovar, .btn-negar, .btn-analise {
+                padding: 6px 9px;
+            }
+            .btn-text {
+                display: none;
+            }
+            .btn-pequeno {
+                padding: 3px 8px;
+            }
+        }
+
+        @media (max-width: 1150px) {
+            .container {
+                padding: 22px 16px 32px;
+            }
+            table {
+                font-size: 11.5px;
+            }
+            th, td {
+                padding: 8px 5px;
+            }
+            .badge-empresa, .pessoa-cell, .natureza-cell, .centro-cell {
+                font-size: 11.5px;
+            }
+        }
+
+        /* =========================================================
            RESPONSIVO — CELULAR / TELAS PEQUENAS
            ========================================================= */
         @media (max-width: 860px) {
@@ -1013,6 +1119,14 @@
                 display: block;
                 width: 100%;
             }
+            table {
+                table-layout: auto;
+            }
+            /* Anula as larguras em % usadas no layout desktop: no cartão
+               mobile cada célula é uma linha própria com largura total */
+            th, td {
+                width: auto !important;
+            }
             thead {
                 display: none;
             }
@@ -1058,11 +1172,25 @@
                 margin-bottom: 6px;
             }
             /* No card mobile não há rolagem lateral, então aqui sim
-               Empresa e Pessoa podem quebrar linha normalmente */
+               Empresa, Pessoa, Natureza e Centro de Custo podem quebrar
+               linha normalmente em vez de truncar com reticências */
             .badge-empresa,
-            .pessoa-cell {
+            .pessoa-cell,
+            .natureza-cell,
+            .centro-cell {
                 white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
                 text-align: right;
+            }
+            .venc-principal,
+            .venc-original {
+                white-space: normal;
+            }
+            td[data-label="Vencimento"] {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
             }
             .btn-group {
                 width: 100%;
@@ -1071,6 +1199,9 @@
             .btn-group button {
                 flex: 1 1 auto;
                 justify-content: center;
+            }
+            .btn-text {
+                display: inline;
             }
             /* Mensagens de estado vazio / sem resultado não devem virar "cartão" */
             td.td-full {

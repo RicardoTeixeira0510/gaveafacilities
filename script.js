@@ -33,6 +33,8 @@
         const qtdRegistros = document.getElementById('qtdRegistros');
         const totalGeralAbertoEl = document.getElementById('totalGeralAberto');
         const totalAprovadoEl = document.getElementById('totalAprovado');
+        const totalAtrasoValorEl = document.getElementById('totalAtrasoValor');
+        const qtdAtrasoInfoEl = document.getElementById('qtdAtrasoInfo');
         const totalFiltradoBar = document.getElementById('totalFiltradoBar');
         const totalFiltradoValorEl = document.getElementById('totalFiltradoValor');
         const qtdFiltradosBadgeEl = document.getElementById('qtdFiltradosBadge');
@@ -84,6 +86,12 @@
 
             totalGeralAbertoEl.textContent = formatarValor(totalGeral);
             totalAprovadoEl.textContent = formatarValor(totalAprovado);
+
+            // Títulos cuja Dt. venc. programado está além da Dt. venc. original
+            const atrasados = registros.filter(r => r.atrasoDias !== null && r.atrasoDias !== undefined && r.atrasoDias > 0);
+            const totalAtraso = atrasados.reduce((soma, r) => soma + Math.abs(r.vlAberto || 0), 0);
+            if (totalAtrasoValorEl) totalAtrasoValorEl.textContent = formatarValor(totalAtraso);
+            if (qtdAtrasoInfoEl) qtdAtrasoInfoEl.textContent = `${atrasados.length} título${atrasados.length === 1 ? '' : 's'} em atraso`;
         }
 
         // Atualizar contador de cada guia (Pendente, Em análise, Aprovado, Negado, Todos)
@@ -347,6 +355,24 @@
                     const chaveDtVenc = colMap['Dt. venc. programado'];
                     const dtVencTexto = chaveDtVenc !== undefined ? String(textRow[chaveDtVenc] ?? '').trim() : '';
                     const dtVencimento = formatarDataParaExibicao(dtVencTexto) || dtVencTexto;
+
+                    // Dt. venc. original - mesma lógica (versão textual, evitando problema
+                    // de fuso horário). Coluna nova no relatório; pode não existir em
+                    // planilhas antigas, então tratamos a ausência normalmente.
+                    const chaveDtVencOriginal = colMap['Dt. venc. original'];
+                    const dtVencOriginalTexto = chaveDtVencOriginal !== undefined ? String(textRow[chaveDtVencOriginal] ?? '').trim() : '';
+                    const dtVencOriginal = dtVencOriginalTexto ? (formatarDataParaExibicao(dtVencOriginalTexto) || dtVencOriginalTexto) : '';
+
+                    // Atraso = diferença em dias entre a Dt. venc. programado e a
+                    // Dt. venc. original. Positivo = a data foi empurrada para frente
+                    // (está em atraso em relação ao combinado originalmente).
+                    // null quando não é possível calcular (coluna ausente ou data inválida).
+                    let atrasoDias = null;
+                    const dataOriginalObj = parseDataBr(dtVencOriginal);
+                    const dataProgramadaObj = parseDataBr(dtVencimento);
+                    if (dataOriginalObj && dataProgramadaObj) {
+                        atrasoDias = Math.round((dataProgramadaObj - dataOriginalObj) / 86400000);
+                    }
                     
                     // Monta o campo único "Dados de Pagamento" a partir de Chave PIX, Nr. agência
                     // e C/C fornecedor (cada um em sua própria linha, só entra se tiver valor)
@@ -365,6 +391,8 @@
                         nomePessoa: get('Nome da pessoa') || 'N/A',
                         nrTitulo: get('Nr. título') || '',
                         dtVencimento: dtVencimento || '—',
+                        dtVencOriginal: dtVencOriginal || '',
+                        atrasoDias: atrasoDias,
                         natureza: get('Natureza de lançamento') || 'N/A',
                         centroCusto: get('Centro(s) de custo') || 'N/A',
                         vlTitulo: vlTitulo,
@@ -398,22 +426,14 @@
         // planilha foi carregada, para que aplicar um filtro (pessoa, empresa,
         // natureza, centro de custo, aba) não recalcule/estreite as colunas.
         function travarLargurasColunas() {
-            if (!tabela || theadCells.length === 0) return;
-            theadCells.forEach(th => {
-                th.style.width = th.getBoundingClientRect().width + 'px';
-            });
-            tabela.style.tableLayout = 'fixed';
-            largurasColunasFixadas = true;
+            // As larguras das colunas agora são definidas em % via CSS
+            // (table-layout: fixed), então já ficam estáveis entre filtros/abas
+            // e se ajustam automaticamente à largura da tela — não é mais
+            // necessário travar nada por JS aqui.
         }
 
-        // Libera as larguras fixas (usado só ao importar uma nova planilha,
-        // para que as colunas voltem a se ajustar ao novo conteúdo antes de
-        // serem travadas novamente).
+        // Idem: não há mais larguras em px para destravar.
         function destravarLargurasColunas() {
-            if (!tabela) return;
-            tabela.style.tableLayout = 'auto';
-            theadCells.forEach(th => { th.style.width = ''; });
-            largurasColunasFixadas = false;
         }
 
         // Renderizar tabela
@@ -464,14 +484,36 @@
                 const obsPreview = r.observacao.length > 30 ? r.observacao.slice(0, 30)+'…' : r.observacao;
                 const dataExibicao = formatarDataParaExibicao(r.novoVencimento);
 
+                // Indicador de atraso: compara Dt. venc. original x Dt. venc. programado
+                // para o responsável pela aprovação ver rapidamente o quanto o título
+                // já está atrasado em relação à data original combinada
+                let atrasoHtml = '';
+                if (r.atrasoDias !== null && r.atrasoDias !== undefined) {
+                    if (r.atrasoDias > 0) {
+                        let nivel = 'atraso-baixo';
+                        let rotulo = 'Atraso leve';
+                        if (r.atrasoDias > 30) { nivel = 'atraso-alto'; rotulo = 'Atraso crítico'; }
+                        else if (r.atrasoDias > 7) { nivel = 'atraso-medio'; rotulo = 'Atraso moderado'; }
+                        atrasoHtml = `<span class="atraso-badge ${nivel}" title="${rotulo}: ${r.atrasoDias} dia(s) além da data original"><i class="fas fa-triangle-exclamation"></i> ${r.atrasoDias} dia${r.atrasoDias === 1 ? '' : 's'} atraso</span>`;
+                    } else {
+                        atrasoHtml = `<span class="atraso-badge atraso-ok" title="Dentro da data original"><i class="fas fa-check"></i> Em dia</span>`;
+                    }
+                }
+                const vencOriginalHtml = (r.dtVencOriginal && r.dtVencOriginal !== '—')
+                    ? `<div class="venc-original">Original: ${escHtml(r.dtVencOriginal)}</div>` : '';
+
                 html += `<tr>
                     <td class="td-checkbox" data-label="Selecionar"><input type="checkbox" class="row-checkbox" data-idx="${r.id}" ${selecionados.has(r.id) ? 'checked' : ''}></td>
-                    <td class="badge-empresa" data-label="Empresa">${escHtml(r.empresa)}</td>
-                    <td class="pessoa-cell" data-label="Pessoa">${escHtml(r.nomePessoa)}</td>
+                    <td class="badge-empresa" data-label="Empresa" title="${escAttr(r.empresa)}">${escHtml(r.empresa)}</td>
+                    <td class="pessoa-cell" data-label="Pessoa" title="${escAttr(r.nomePessoa)}">${escHtml(r.nomePessoa)}</td>
                     <td data-label="Nr. Título">${r.nrTitulo ? `<span class="nr-titulo"><i class="fas fa-hashtag"></i> ${escHtml(r.nrTitulo)}</span>` : '—'}</td>
-                    <td data-label="Vencimento">${escHtml(r.dtVencimento)}</td>
-                    <td data-label="Natureza">${escHtml(r.natureza)}</td>
-                    <td data-label="Centro de custo">${escHtml(r.centroCusto)}</td>
+                    <td data-label="Vencimento">
+                        <div class="venc-principal">${escHtml(r.dtVencimento)}</div>
+                        ${vencOriginalHtml}
+                        ${atrasoHtml}
+                    </td>
+                    <td class="natureza-cell" data-label="Natureza" title="${escAttr(r.natureza)}">${escHtml(r.natureza)}</td>
+                    <td class="centro-cell" data-label="Centro de custo" title="${escAttr(r.centroCusto)}">${escHtml(r.centroCusto)}</td>
                     <td class="valor" data-label="Vl. em aberto">${valorFormatado}</td>
                     <td class="observacao-cell" data-label="Observação">
                         ${obsPreview ? `<button class="btn-pequeno" data-idx="${r.id}"><i class="fas fa-eye"></i> ver</button>` : '—'}
@@ -482,9 +524,9 @@
                     </td>
                     <td data-label="Ações">
                         <div class="btn-group">
-                            <button class="btn-aprovar" data-idx="${r.id}"><i class="fas fa-check"></i> Aprovar</button>
-                            <button class="btn-negar" data-idx="${r.id}"><i class="fas fa-times"></i> Negar</button>
-                            <button class="btn-analise" data-idx="${r.id}"><i class="fas fa-clock"></i> Análise</button>
+                            <button class="btn-aprovar" data-idx="${r.id}" title="Aprovar"><i class="fas fa-check"></i> <span class="btn-text">Aprovar</span></button>
+                            <button class="btn-negar" data-idx="${r.id}" title="Negar"><i class="fas fa-times"></i> <span class="btn-text">Negar</span></button>
+                            <button class="btn-analise" data-idx="${r.id}" title="Análise"><i class="fas fa-clock"></i> <span class="btn-text">Análise</span></button>
                         </div>
                     </td>
                 </tr>`;
