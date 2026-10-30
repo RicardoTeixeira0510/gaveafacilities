@@ -30,6 +30,12 @@
 
     <!-- Totais -->
     <div class="totais-bar">
+        <div class="total-card total-saldo" id="cardSaldo">
+            <span class="total-label"><i class="fas fa-building-columns"></i> Saldo Disponível <span class="total-label-sub">(saldo lançado − aprovado)</span></span>
+            <span class="total-valor" id="saldoDisponivelValor">R$ 0,00</span>
+            <span class="total-sub" id="saldoDisponivelSub">Nenhum saldo lançado</span>
+            <button type="button" class="btn-saldo-detalhes" id="abrirSaldoDetalhes"><i class="fas fa-list-ul"></i> Ver detalhes por conta</button>
+        </div>
         <div class="total-card total-geral">
             <span class="total-label"><i class="fas fa-layer-group"></i> Total Geral em Aberto</span>
             <span class="total-valor" id="totalGeralAberto">R$ 0,00</span>
@@ -228,6 +234,57 @@
     </div>
 </div>
 
+<!-- Modal Saldos bancários (detalhes + edição protegida por senha) -->
+<div class="data-modal-overlay" id="saldoModal">
+    <div class="data-modal saldo-modal">
+        <div id="saldoView">
+            <h3><i class="fas fa-building-columns"></i> Saldos das contas</h3>
+            <div class="saldo-aviso-desatualizado" id="saldoAvisoDesatualizado" style="display:none;"></div>
+            <div class="saldo-resumo">
+                <div><span>Saldo lançado</span><strong id="resumoLancado">R$ 0,00</strong></div>
+                <div><span>Aprovado (debitado)</span><strong id="resumoAprovado" class="neg">R$ 0,00</strong></div>
+                <div class="saldo-resumo-final"><span>Saldo disponível</span><strong id="resumoDisponivel">R$ 0,00</strong></div>
+            </div>
+            <div class="saldo-lista" id="saldoLista"></div>
+            <p class="saldo-atualizado" id="saldoAtualizadoEm"></p>
+            <div class="btn-group-modal">
+                <button class="btn-cancelar" id="fecharSaldoView">Fechar</button>
+                <button class="btn-confirmar" id="irParaEdicaoSaldo"><i class="fas fa-lock"></i> Atualizar saldos</button>
+            </div>
+        </div>
+
+        <div id="saldoEdit" style="display:none;">
+            <h3><i class="fas fa-pen-to-square"></i> Atualizar saldos</h3>
+            <p class="info-text">Cadastre as contas e informe o saldo atual de cada uma. Este saldo é apenas para controle.</p>
+            <div class="saldo-edit-lista" id="saldoEditLista"></div>
+            <button type="button" class="btn-add-conta" id="addConta"><i class="fas fa-plus"></i> Adicionar conta</button>
+            <div class="saldo-edit-total">Total lançado: <strong id="saldoEditTotal">R$ 0,00</strong></div>
+            <div class="btn-group-modal">
+                <button class="btn-cancelar" id="cancelarEdicaoSaldo">Cancelar</button>
+                <button class="btn-confirmar" id="salvarSaldos"><i class="fas fa-floppy-disk"></i> Salvar</button>
+            </div>
+            <button type="button" class="link-bloquear" id="bloquearSaldos"><i class="fas fa-lock"></i> Bloquear edição</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de senha -->
+<div class="data-modal-overlay" id="senhaModal">
+    <div class="data-modal senha-modal">
+        <h3><i class="fas fa-lock"></i> Acesso restrito</h3>
+        <p class="info-text">Digite a senha para lançar ou atualizar os saldos.</p>
+        <input type="password" class="data-input" id="senhaInput" placeholder="Senha" autocomplete="off">
+        <div class="senha-erro" id="senhaErro"></div>
+        <label class="senha-lembrar">
+            <input type="checkbox" id="senhaLembrar"> Manter desbloqueado neste navegador (30 dias)
+        </label>
+        <div class="btn-group-modal">
+            <button class="btn-cancelar" id="cancelarSenha">Cancelar</button>
+            <button class="btn-confirmar" id="confirmarSenha">Entrar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal observação -->
 <div class="obs-modal" id="obsModal">
     <div class="obs-card">
@@ -238,6 +295,10 @@
 </div>
 
 
+<!-- Firebase (módulos ES) -->
+<script type="module" src="firebase-config.js"></script>
+<!-- Ponte entre o script.js e o Firebase -->
+<script src="firebase-auth.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

@@ -1247,3 +1247,90 @@
                 padding: 7px 12px;
             }
         }
+
+
+        /* ===== Saldo bancário ===== */
+        .total-saldo { background: #1d4b77; color: #ffffff; }
+        .total-saldo.saldo-negativo { background: #8c2f2f; }
+        .btn-saldo-detalhes {
+            align-self: flex-start;
+            margin-top: 6px;
+            background: rgba(255,255,255,0.16);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.35);
+            border-radius: 40px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.15s;
+        }
+        .btn-saldo-detalhes:hover { background: rgba(255,255,255,0.28); }
+        .data-modal.saldo-modal { max-width: 560px; max-height: 90vh; overflow-y: auto; }
+        .saldo-resumo {
+            display: flex; flex-direction: column; gap: 6px;
+            background: #f0f5fe; border-radius: 14px;
+            padding: 12px 16px; margin-bottom: 14px;
+            font-size: 14px; color: #1e3b5a;
+        }
+        .saldo-resumo > div { display: flex; justify-content: space-between; gap: 12px; }
+        .saldo-resumo .neg { color: #7f2a2a; }
+        .saldo-resumo-final { border-top: 1px solid #c9d9ee; padding-top: 8px; margin-top: 2px; font-size: 16px; }
+        .saldo-resumo-final strong.negativo { color: #b3261e; }
+        .saldo-lista { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+        .saldo-conta {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            border: 1px solid #d6e2ef; border-radius: 12px;
+            padding: 10px 14px; font-size: 14px; color: #0b2b4a;
+        }
+        .saldo-conta .saldo-conta-nome { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+        .saldo-conta .saldo-conta-nome i { color: #1d4b77; }
+        .saldo-conta strong.negativo { color: #b3261e; }
+        .saldo-vazio {
+            text-align: center; color: #6e8aaa; font-size: 14px;
+            padding: 16px 8px; border: 1px dashed #c3d3e6; border-radius: 12px;
+        }
+        .saldo-atualizado { font-size: 12px; color: #6e8aaa; margin: 4px 0 0; }
+        .saldo-aviso-desatualizado {
+            background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
+            padding: 8px 12px; margin-bottom: 12px; color: #856404; font-size: 13px;
+        }
+        .saldo-edit-lista { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+        .saldo-edit-row { display: grid; grid-template-columns: 1fr 160px 36px; gap: 8px; align-items: center; }
+        .saldo-edit-row input {
+            width: 100%; padding: 10px 12px; border: 2px solid #d6e2ef;
+            border-radius: 12px; font-size: 14px; transition: 0.2s;
+        }
+        .saldo-edit-row input:focus { border-color: #1d4b77; outline: none; }
+        .saldo-edit-row input.invalido { border-color: #c0392b; }
+        .saldo-edit-row .conta-valor { text-align: right; }
+        .btn-remover-conta {
+            width: 36px; height: 36px; border: none; border-radius: 50%;
+            background: #f8d4d4; color: #7f2a2a; cursor: pointer;
+        }
+        .btn-remover-conta:hover { background: #f1b8b8; }
+        .btn-add-conta {
+            background: #eaf1fa; color: #1d4b77; border: 1px dashed #a0c1e6;
+            border-radius: 40px; padding: 8px 18px; font-size: 13px; font-weight: 600;
+            cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-add-conta:hover { background: #dcebff; }
+        .saldo-edit-total { margin-top: 12px; font-size: 14px; color: #1e3b5a; }
+        .link-bloquear {
+            background: none; border: none; color: #6e8aaa; font-size: 12px;
+            cursor: pointer; margin-top: 10px; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .link-bloquear:hover { color: #1d4b77; }
+        .data-modal.senha-modal { max-width: 400px; }
+        .senha-modal .data-input { text-align: left; }
+        .senha-erro { color: #b3261e; font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+        .senha-lembrar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #3e5e7a; cursor: pointer; }
+        @media (max-width: 860px) {
+            .saldo-edit-row { grid-template-columns: 1fr 36px; }
+            .saldo-edit-row .conta-valor { grid-column: 1 / 2; grid-row: 2; }
+            .saldo-edit-row .btn-remover-conta { grid-row: 1 / 3; grid-column: 2; align-self: center; }
+            .btn-saldo-detalhes { align-self: stretch; justify-content: center; }
+        }

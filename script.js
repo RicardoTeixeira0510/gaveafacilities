@@ -1,21 +1,18 @@
-    (function(){
+(function(){
         // ----- ESTADO -----
         let registros = [];
         let colMap = {};
-        let pendingNegateIds = []; // ids envolvidos na negação em andamento (1 = individual, várias = em massa)
+        let pendingNegateIds = [];
         let flatpickrInstance = null;
-        let selecionados = new Set(); // ids dos lançamentos marcados para ação em massa
-        let ultimosFiltrados = []; // últimos registros exibidos na tabela (respeitando aba/filtros)
+        let selecionados = new Set();
+        let ultimosFiltrados = [];
 
-        // Configuração dos filtros de múltipla seleção. Cada campo vira um dropdown
-        // com checkboxes montado a partir dos valores realmente carregados da planilha
         const FILTROS_CONFIG = [
             { campo: 'empresa', getValor: r => r.empresa },
             { campo: 'pessoa', getValor: r => r.nomePessoa },
             { campo: 'natureza', getValor: r => r.natureza },
             { campo: 'centroCusto', getValor: r => r.centroCusto },
         ];
-        // Guarda os valores marcados em cada filtro. Conjunto vazio = sem restrição (mostra tudo)
         let filtrosSelecionados = {
             empresa: new Set(),
             pessoa: new Set(),
@@ -23,7 +20,6 @@
             centroCusto: new Set(),
         };
 
-        // referências
         const tbody = document.getElementById('table-body');
         const tabela = tbody.closest('table');
         const theadCells = tabela ? Array.from(tabela.querySelectorAll('thead th')) : [];
@@ -40,7 +36,7 @@
         const qtdFiltradosBadgeEl = document.getElementById('qtdFiltradosBadge');
         const limparTodosFiltrosBtn = document.getElementById('limparTodosFiltros');
         const tabsBar = document.getElementById('tabsBar');
-        let abaAtual = 'Pendente'; // guia ativa: Pendente, Em análise, Aprovado, Negado ou '' (Todos)
+        let abaAtual = 'Pendente';
 
         const selecionarTodosCheckbox = document.getElementById('selecionarTodos');
         const selecionarTodosMobileCheckbox = document.getElementById('selecionarTodosMobile');
@@ -63,21 +59,17 @@
 
         // ----- helpers -----
         function getVal(row, label) {
-            // colMap guarda o nome real (já limpo) da coluna correspondente ao rótulo pedido
             const chave = colMap[label];
             if (chave === undefined) return '';
             const val = row[chave] !== undefined ? row[chave] : '';
             return String(val).trim();
         }
 
-        // Formatar valor monetário (sem negativo)
         function formatarValor(valor) {
             const positivo = Math.abs(valor);
             return 'R$ ' + positivo.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
 
-        // Atualizar os cards de totais no topo (sempre sobre TODOS os registros carregados,
-        // independente dos filtros aplicados na tabela)
         function atualizarTotais() {
             const totalGeral = registros.reduce((soma, r) => soma + Math.abs(r.vlAberto || 0), 0);
             const totalAprovado = registros
@@ -87,14 +79,14 @@
             totalGeralAbertoEl.textContent = formatarValor(totalGeral);
             totalAprovadoEl.textContent = formatarValor(totalAprovado);
 
-            // Títulos cuja Dt. venc. programado está além da Dt. venc. original
             const atrasados = registros.filter(r => r.atrasoDias !== null && r.atrasoDias !== undefined && r.atrasoDias > 0);
             const totalAtraso = atrasados.reduce((soma, r) => soma + Math.abs(r.vlAberto || 0), 0);
             if (totalAtrasoValorEl) totalAtrasoValorEl.textContent = formatarValor(totalAtraso);
             if (qtdAtrasoInfoEl) qtdAtrasoInfoEl.textContent = `${atrasados.length} título${atrasados.length === 1 ? '' : 's'} em atraso`;
+
+            atualizarSaldoCard(totalAprovado);
         }
 
-        // Atualizar contador de cada guia (Pendente, Em análise, Aprovado, Negado, Todos)
         function atualizarContadoresAbas() {
             const cont = { 'Pendente': 0, 'Em análise': 0, 'Aprovado': 0, 'Negado': 0 };
             registros.forEach(r => {
@@ -107,7 +99,6 @@
             document.getElementById('count-Todos').textContent = registros.length;
         }
 
-        // Trocar de guia
         function trocarAba(novoStatus) {
             abaAtual = novoStatus;
             document.querySelectorAll('.tab-item').forEach(btn => {
@@ -116,8 +107,6 @@
             renderTable();
         }
 
-        // Atualiza a barra "Total filtrado" com a soma do Vl. em Aberto e a quantidade
-        // de títulos exibidos no momento (respeitando guia + todos os filtros ativos)
         function atualizarTotalFiltrado(filtered) {
             if (!totalFiltradoBar) return;
             if (registros.length === 0) {
@@ -130,15 +119,10 @@
             qtdFiltradosBadgeEl.textContent = `(${filtered.length} título${filtered.length === 1 ? '' : 's'})`;
         }
 
-        // ----- Filtros de múltipla seleção (Empresa, Pessoa, Natureza, Centro de Custo) -----
-
-        // Escapa um valor para uso seguro dentro de um atributo HTML
         function escAttr(str) {
             return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
         }
 
-        // Recalcula as opções (com contagem de títulos) de cada filtro a partir dos
-        // registros recém-carregados, e reseta a seleção anterior de cada um
         function popularFiltros() {
             FILTROS_CONFIG.forEach(({ campo, getValor }) => {
                 filtrosSelecionados[campo] = new Set();
@@ -171,7 +155,6 @@
             });
         }
 
-        // Atualiza o número no badge do botão do filtro e o destaque visual (se está ativo)
         function atualizarBadgeFiltro(campo) {
             const qtd = filtrosSelecionados[campo].size;
             const badge = document.getElementById(`filtro-${campo}-badge`);
@@ -181,15 +164,12 @@
             atualizarVisibilidadeLimparTodos();
         }
 
-        // Mostra/esconde o botão "Limpar filtros" conforme existir algum filtro ativo
         function atualizarVisibilidadeLimparTodos() {
             if (!limparTodosFiltrosBtn) return;
             const algumAtivo = FILTROS_CONFIG.some(({ campo }) => filtrosSelecionados[campo].size > 0);
             limparTodosFiltrosBtn.style.display = algumAtivo ? 'inline-flex' : 'none';
         }
 
-        // Converte uma data no formato dd/mm/aaaa para um objeto Date (à meia-noite local).
-        // Retorna null se a string não for uma data válida (usado nas validações de data)
         function parseDataBr(dataStr) {
             if (!dataStr) return null;
             const partes = String(dataStr).trim().split('/');
@@ -203,7 +183,6 @@
             return data;
         }
 
-        // Verificar se é fim de semana
         function isFimDeSemana(dataStr) {
             if (!dataStr) return false;
             const partes = dataStr.split('/');
@@ -217,11 +196,9 @@
             return diaSemana === 0 || diaSemana === 6;
         }
 
-        // Formatar data para exibição
         function formatarDataParaExibicao(dataStr) {
             if (!dataStr) return '—';
             dataStr = String(dataStr).trim();
-            // Remove eventual componente de hora junto (ex: "30/07/2026 00:00:00")
             dataStr = dataStr.split(' ')[0];
             if (dataStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dataStr;
             const partes = dataStr.split('-');
@@ -231,8 +208,6 @@
             return dataStr;
         }
 
-        // Calcula o próximo dia útil (pula sábados e domingos) a partir de hoje,
-        // retornando no formato dd/mm/aaaa usado no restante do sistema
         function proximoDiaUtil(dataBase) {
             const data = dataBase ? new Date(dataBase) : new Date();
             data.setDate(data.getDate() + 1);
@@ -245,11 +220,9 @@
             return `${dia}/${mes}/${ano}`;
         }
 
-        // Máscara de data automática
         function aplicarMascaraData(input) {
             let valor = input.value.replace(/\D/g, '');
             if (valor.length > 8) valor = valor.slice(0, 8);
-            
             let formatado = '';
             for (let i = 0; i < valor.length; i++) {
                 if (i === 2 || i === 4) {
@@ -260,48 +233,29 @@
             input.value = formatado;
         }
 
-        // Carregar planilha - VERSÃO CORRIGIDA
         function loadWorkbook(data, nomeArquivo) {
             try {
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Converter para JSON ignorando linhas vazias
-                const json = XLSX.utils.sheet_to_json(firstSheet, { 
-                    defval: '',
-                    blankrows: false 
-                });
+                const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '', blankrows: false });
+                const jsonTextual = XLSX.utils.sheet_to_json(firstSheet, { defval: '', blankrows: false, raw: false });
 
-                // Versão "textual" da mesma planilha: aqui os valores vêm exatamente como
-                // o Excel EXIBE na célula (respeitando o formato de data configurado na
-                // planilha de origem), sem passar por objeto Date/conversão de fuso horário.
-                // Usada só para extrair a Dt. Vencimento corretamente, evitando o problema
-                // de "-1 dia" que pode ocorrer ao converter datas via objetos Date/UTC.
-                const jsonTextual = XLSX.utils.sheet_to_json(firstSheet, {
-                    defval: '',
-                    blankrows: false,
-                    raw: false
-                });
-                
                 console.log('Total de linhas lidas:', json.length);
-                
+
                 if (!json || json.length === 0) {
                     alert('A planilha está vazia ou não possui cabeçalho.');
                     return;
                 }
 
-                // Mapear cabeçalhos (removendo caracteres especiais)
                 const headers = Object.keys(json[0]);
                 colMap = {};
-                headers.forEach((h) => { 
-                    // Remove dois pontos, espaços extras e normaliza
+                headers.forEach((h) => {
                     const cleanHeader = h.replace(/[:：]/g, '').trim();
-                    colMap[cleanHeader] = h; // guarda a chave ORIGINAL usada no objeto retornado pelo SheetJS
+                    colMap[cleanHeader] = h;
                 });
 
                 console.log('Colunas encontradas:', Object.keys(colMap));
 
-                // Verificar campos obrigatórios
                 const required = ['Nome da pessoa', 'Empresa', 'Natureza de lançamento', 'Centro(s) de custo', 'Vl. título (atualizado)', 'Vl. em aberto', 'Dt. venc. programado'];
                 const missing = required.filter(r => !(r in colMap));
                 if (missing.length) {
@@ -309,9 +263,6 @@
                     return;
                 }
 
-                // Filtrar linhas que têm pelo menos Nome da pessoa ou Empresa preenchidos
-                // (mantendo o "par" json/jsonTextual de cada linha, pois json e jsonTextual
-                // têm a mesma ordem/quantidade de linhas)
                 const linhasValidas = json
                     .map((row, i) => ({ row, textRow: jsonTextual[i] || {} }))
                     .filter(({ row }) => {
@@ -332,50 +283,30 @@
                         const cleanLabel = label.replace(/[:：]/g, '').trim();
                         return getVal(row, cleanLabel);
                     };
-                    
+
                     const vlTituloStr = get('Vl. título (atualizado)');
                     let vlTitulo = 0;
-                    try {
-                        vlTitulo = parseFloat(vlTituloStr) || 0;
-                    } catch(e) {
-                        vlTitulo = 0;
-                    }
+                    try { vlTitulo = parseFloat(vlTituloStr) || 0; } catch(e) { vlTitulo = 0; }
 
                     const vlAbertoStr = get('Vl. em aberto');
                     let vlAberto = 0;
-                    try {
-                        vlAberto = parseFloat(vlAbertoStr) || 0;
-                    } catch(e) {
-                        vlAberto = 0;
-                    }
+                    try { vlAberto = parseFloat(vlAbertoStr) || 0; } catch(e) { vlAberto = 0; }
 
-                    // Dt. venc. programado - pega o valor da versão TEXTUAL da planilha
-                    // (jsonTextual/textRow), ou seja, exatamente como a data aparece
-                    // formatada na planilha de origem, sem risco de deslocamento por fuso
                     const chaveDtVenc = colMap['Dt. venc. programado'];
                     const dtVencTexto = chaveDtVenc !== undefined ? String(textRow[chaveDtVenc] ?? '').trim() : '';
                     const dtVencimento = formatarDataParaExibicao(dtVencTexto) || dtVencTexto;
 
-                    // Dt. venc. original - mesma lógica (versão textual, evitando problema
-                    // de fuso horário). Coluna nova no relatório; pode não existir em
-                    // planilhas antigas, então tratamos a ausência normalmente.
                     const chaveDtVencOriginal = colMap['Dt. venc. original'];
                     const dtVencOriginalTexto = chaveDtVencOriginal !== undefined ? String(textRow[chaveDtVencOriginal] ?? '').trim() : '';
                     const dtVencOriginal = dtVencOriginalTexto ? (formatarDataParaExibicao(dtVencOriginalTexto) || dtVencOriginalTexto) : '';
 
-                    // Atraso = diferença em dias entre a Dt. venc. programado e a
-                    // Dt. venc. original. Positivo = a data foi empurrada para frente
-                    // (está em atraso em relação ao combinado originalmente).
-                    // null quando não é possível calcular (coluna ausente ou data inválida).
                     let atrasoDias = null;
                     const dataOriginalObj = parseDataBr(dtVencOriginal);
                     const dataProgramadaObj = parseDataBr(dtVencimento);
                     if (dataOriginalObj && dataProgramadaObj) {
                         atrasoDias = Math.round((dataProgramadaObj - dataOriginalObj) / 86400000);
                     }
-                    
-                    // Monta o campo único "Dados de Pagamento" a partir de Chave PIX, Nr. agência
-                    // e C/C fornecedor (cada um em sua própria linha, só entra se tiver valor)
+
                     const chavePix = get('Chave PIX (a pagar)');
                     const nrAgencia = get('Nr. agência');
                     const ccFornecedor = get('C/C fornecedor (a pagar)');
@@ -415,28 +346,16 @@
                 qtdRegistros.textContent = `${registros.length} registros`;
                 renderTable();
                 travarLargurasColunas();
-                
+
             } catch (error) {
                 console.error('Erro ao ler planilha:', error);
                 alert('Erro ao ler a planilha: ' + error.message);
             }
         }
 
-        // Trava a largura de cada coluna no tamanho em que já estava quando a
-        // planilha foi carregada, para que aplicar um filtro (pessoa, empresa,
-        // natureza, centro de custo, aba) não recalcule/estreite as colunas.
-        function travarLargurasColunas() {
-            // As larguras das colunas agora são definidas em % via CSS
-            // (table-layout: fixed), então já ficam estáveis entre filtros/abas
-            // e se ajustam automaticamente à largura da tela — não é mais
-            // necessário travar nada por JS aqui.
-        }
+        function travarLargurasColunas() {}
+        function destravarLargurasColunas() {}
 
-        // Idem: não há mais larguras em px para destravar.
-        function destravarLargurasColunas() {
-        }
-
-        // Renderizar tabela
         function renderTable() {
             atualizarTotais();
             atualizarContadoresAbas();
@@ -484,9 +403,6 @@
                 const obsPreview = r.observacao.length > 30 ? r.observacao.slice(0, 30)+'…' : r.observacao;
                 const dataExibicao = formatarDataParaExibicao(r.novoVencimento);
 
-                // Indicador de atraso: compara Dt. venc. original x Dt. venc. programado
-                // para o responsável pela aprovação ver rapidamente o quanto o título
-                // já está atrasado em relação à data original combinada
                 let atrasoHtml = '';
                 if (r.atrasoDias !== null && r.atrasoDias !== undefined) {
                     if (r.atrasoDias > 0) {
@@ -533,7 +449,6 @@
             });
             tbody.innerHTML = html;
 
-            // Eventos dos botões
             tbody.querySelectorAll('.btn-aprovar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(btn.dataset.idx);
@@ -555,7 +470,6 @@
                 });
             });
 
-            // Observação modal
             tbody.querySelectorAll('.btn-pequeno').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(btn.dataset.idx);
@@ -567,7 +481,6 @@
                 });
             });
 
-            // Checkbox de cada linha (seleção para ações em massa)
             tbody.querySelectorAll('.row-checkbox').forEach(chk => {
                 chk.addEventListener('change', (e) => {
                     const idx = parseInt(chk.dataset.idx);
@@ -583,9 +496,6 @@
             atualizarBarraSelecao();
         }
 
-        // Atualiza a barra de ações em massa (contador, visibilidade) e o estado dos
-        // checkboxes "selecionar todos" (desktop e mobile) com base nos registros
-        // atualmente visíveis na tabela
         function atualizarBarraSelecao() {
             if (bulkCount) bulkCount.textContent = selecionados.size;
             if (bulkBar) bulkBar.classList.toggle('active', selecionados.size > 0);
@@ -604,15 +514,12 @@
             setCheckboxState(selecionarTodosMobileCheckbox, todosSelecionados, algunsSelecionados);
         }
 
-        // Atualiza checked/indeterminate de um checkbox só se ele realmente existir no
-        // HTML (protege contra páginas com cache desatualizado/mesclando versões antigas)
         function setCheckboxState(checkbox, checked, indeterminate) {
             if (!checkbox) return;
             checkbox.checked = checked;
             checkbox.indeterminate = indeterminate;
         }
 
-        // Abrir modal de data - aceita um único id ou uma lista de ids (ação em massa)
         function abrirModalData(idOuIds) {
             pendingNegateIds = Array.isArray(idOuIds) ? idOuIds : [idOuIds];
             novaDataInput.value = '';
@@ -626,7 +533,7 @@
                     : '';
                 infoQtd.style.display = pendingNegateIds.length > 1 ? 'block' : 'none';
             }
-            
+
             setTimeout(() => {
                 novaDataInput.focus();
             }, 100);
@@ -654,7 +561,6 @@
             }
         }
 
-        // Verificar se a data é fim de semana
         function verificarFimSemana(dataStr) {
             if (isFimDeSemana(dataStr)) {
                 avisoFimSemana.classList.add('active');
@@ -665,7 +571,6 @@
             }
         }
 
-        // Obter nome do dia da semana em português
         function obterNomeDiaSemana(dataStr) {
             if (!dataStr) return '';
             const partes = dataStr.split('/');
@@ -679,7 +584,6 @@
             return dias[data.getDay()];
         }
 
-        // Fechar modal de data
         function fecharModalData() {
             dataModal.classList.remove('active');
             pendingNegateIds = [];
@@ -690,7 +594,6 @@
             }
         }
 
-        // Confirmar data
         function confirmarDataModal() {
             const dataStr = novaDataInput.value.trim();
             if (!dataStr) {
@@ -720,8 +623,6 @@
                 }
             }
 
-            // Não permitir definir, ao negar, uma nova data igual ou anterior à
-            // data de vencimento original de cada título selecionado
             const invalidos = [];
             pendingNegateIds.forEach(id => {
                 const reg = registros.find(r => r.id === id);
@@ -746,7 +647,6 @@
             }
         }
 
-        // Aplica o novo status/nova data a um único registro (sem re-renderizar)
         function aplicarStatusRegistro(reg, novoStatus, novoVenc) {
             reg.status = novoStatus;
             if (novoStatus === 'Negado' || novoStatus === 'Em análise') {
@@ -756,15 +656,12 @@
             }
         }
 
-        // Set status - aceita um único id (number) ou uma lista de ids (array),
-        // usado tanto pelos botões de ação de cada linha quanto pelas ações em massa
         function setStatus(idOuIds, novoStatus, novoVenc) {
             const ids = Array.isArray(idOuIds) ? idOuIds : [idOuIds];
             ids.forEach(id => {
                 const reg = registros.find(r => r.id === id);
                 if (reg) aplicarStatusRegistro(reg, novoStatus, novoVenc);
             });
-            // Remove da seleção os itens que acabaram de ser processados
             ids.forEach(id => selecionados.delete(id));
             renderTable();
         }
@@ -787,7 +684,6 @@
                 return;
             }
 
-            // Bloqueia a geração enquanto houver pagamentos ainda como "Pendente"
             const pendentesExcel = registros.filter(r => r.status === 'Pendente');
             if (pendentesExcel.length > 0) {
                 alert(`Ainda há ${pendentesExcel.length} pagamento(s) como "Pendente".\n\nAprove, negue ou coloque em análise todos os títulos antes de gerar o Excel.`);
@@ -805,7 +701,6 @@
                 workbook.creator = 'BIMER · Gestor de Aprovação';
                 workbook.created = new Date();
 
-                // Cores por status (fundo + texto), reaproveitando a paleta usada na tela
                 const coresStatus = {
                     'Aprovado':   { fundo: 'FFDCF3E6', texto: 'FF0A4B2A' },
                     'Negado':     { fundo: 'FFF8D4D4', texto: 'FF7F2A2A' },
@@ -813,10 +708,8 @@
                     'Pendente':   { fundo: 'FFE2E9F2', texto: 'FF1A344D' },
                 };
                 const corAzulHeader = 'FF1D4B77';
-                // Borda fina aplicada aos 4 lados de cada célula (equivalente a "Todas as Bordas" do Excel)
                 const bordaFina = { style: 'thin', color: { argb: 'FFB7C4D6' } };
 
-                // ---------- Aba 1: Relatório completo ----------
                 const sheet = workbook.addWorksheet('Relatório', {
                     views: [{ state: 'frozen', ySplit: 1 }],
                     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
@@ -839,7 +732,6 @@
                     { header: 'Observação', key: 'observacao', width: 42 },
                 ];
 
-                // Estilo do cabeçalho
                 const headerRow = sheet.getRow(1);
                 headerRow.height = 24;
                 headerRow.eachCell((cell) => {
@@ -849,7 +741,6 @@
                     cell.border = { top: bordaFina, left: bordaFina, right: bordaFina, bottom: bordaFina };
                 });
 
-                // Linhas de dados
                 registros.forEach((r) => {
                     const valorAberto = Math.abs(r.vlAberto ?? r.vlTitulo ?? 0);
                     const row = sheet.addRow({
@@ -871,14 +762,9 @@
 
                     row.eachCell((cell) => {
                         cell.border = { top: bordaFina, left: bordaFina, right: bordaFina, bottom: bordaFina };
-                        // Sem wrapText: a linha não cresce em altura. O texto completo fica
-                        // salvo na célula e aparece por inteiro ao clicar nela para editar
-                        // (barra de fórmulas do Excel), mesmo que visualmente fique cortado.
                         cell.alignment = { vertical: 'middle', wrapText: false };
                     });
 
-                    // "Dados de Pagamento" pode ter várias linhas (PIX / AG / C/C), então essa
-                    // célula usa wrapText para exibir tudo já visível, sem precisar clicar
                     if (r.dadosPagamento) {
                         row.getCell('dadosPagamento').alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
                         const qtdLinhas = r.dadosPagamento.split('\n').length;
@@ -894,8 +780,6 @@
                     row.getCell('dtVencimento').alignment = { vertical: 'middle', horizontal: 'center' };
                     row.getCell('novoVencimento').alignment = { vertical: 'middle', horizontal: 'center' };
 
-                    // Sinalização por cor de acordo com o status (célula de status em destaque
-                    // e leve tingimento da linha toda para facilitar a leitura visual)
                     const cor = coresStatus[r.status] || coresStatus['Pendente'];
                     const statusCell = row.getCell('status');
                     statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cor.fundo } };
@@ -903,10 +787,8 @@
                     statusCell.alignment = { vertical: 'middle', horizontal: 'center' };
                 });
 
-                // Filtro automático em todo o cabeçalho (permite filtrar/ordenar por qualquer coluna)
                 sheet.autoFilter = { from: 'A1', to: 'N1' };
 
-                // ---------- Aba 2: Resumo ----------
                 const resumo = workbook.addWorksheet('Resumo');
                 resumo.columns = [
                     { header: 'Status', key: 'status', width: 20 },
@@ -957,7 +839,6 @@
                 const dataArquivo = new Date().toISOString().slice(0, 10);
                 const nomeArquivo = `relatorio_aprovacao_bimer_${dataArquivo}.xlsx`;
 
-                // Baixa o arquivo direto, sem passar por nenhum modal de escolha
                 baixarExcelGerado(blob, nomeArquivo);
             } catch (error) {
                 console.error('Erro ao gerar Excel:', error);
@@ -968,7 +849,6 @@
             }
         });
 
-        // Baixa o arquivo Excel gerado — funciona igual no PC e no celular
         function baixarExcelGerado(blob, nomeArquivo) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -982,7 +862,6 @@
 
         // ----- Eventos -----
 
-        // Lê um arquivo (vindo do clique no botão OU de arrastar-e-soltar) e carrega a planilha
         function handleFile(file) {
             if (!file) return;
             const extensoesValidas = /\.(xls|xlsx|csv)$/i;
@@ -1003,7 +882,6 @@
             handleFile(file);
         });
 
-        // Arrastar e soltar planilha diretamente na área de upload
         const uploadArea = document.getElementById('upload-area');
 
         ['dragenter', 'dragover'].forEach((evento) => {
@@ -1018,8 +896,6 @@
             uploadArea.addEventListener(evento, function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                // Só remove o destaque se realmente saiu da área (evita "piscar" ao passar
-                // por cima dos elementos filhos, como o botão e os textos)
                 if (!uploadArea.contains(e.relatedTarget)) {
                     uploadArea.classList.remove('drag-over');
                 }
@@ -1065,7 +941,6 @@
 
         // ----- Filtros de múltipla seleção -----
 
-        // Abrir/fechar o painel de cada filtro (só um aberto por vez)
         document.querySelectorAll('.filtro-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1076,14 +951,12 @@
             });
         });
 
-        // Clicar fora de qualquer painel fecha todos
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.filtro-dropdown')) {
                 document.querySelectorAll('.filtro-dropdown.open').forEach(d => d.classList.remove('open'));
             }
         });
 
-        // Marcar/desmarcar uma opção dentro de um painel de filtro
         document.querySelectorAll('.filtro-opcoes').forEach(container => {
             container.addEventListener('change', (e) => {
                 if (e.target.type !== 'checkbox') return;
@@ -1096,7 +969,6 @@
             });
         });
 
-        // Busca dentro do painel: filtra a LISTA DE OPÇÕES visível, não a tabela
         document.querySelectorAll('.filtro-busca').forEach(input => {
             input.addEventListener('input', () => {
                 const termo = input.value.toLowerCase();
@@ -1108,7 +980,6 @@
             });
         });
 
-        // "Marcar todos" / "Limpar" de cada painel (respeita a busca: só mexe no que está visível)
         document.querySelectorAll('.filtro-panel-acoes button').forEach(btn => {
             btn.addEventListener('click', () => {
                 const dropdown = btn.closest('.filtro-dropdown');
@@ -1127,7 +998,6 @@
             });
         });
 
-        // Limpar todos os filtros de uma só vez
         if (limparTodosFiltrosBtn) {
             limparTodosFiltrosBtn.addEventListener('click', () => {
                 FILTROS_CONFIG.forEach(({ campo }) => {
@@ -1147,8 +1017,6 @@
 
         // ----- Seleção em massa -----
 
-        // Checkbox "selecionar todos" (desktop, no cabeçalho da tabela, e mobile, na
-        // barra acima da tabela): marca/desmarca todos os itens atualmente visíveis
         function alternarSelecionarTodos(marcar) {
             if (marcar) {
                 ultimosFiltrados.forEach(r => selecionados.add(r.id));
@@ -1198,7 +1066,351 @@
             });
         }
 
-        // Inicialização vazia
-        // Nenhum dado de exemplo
+        // =====================================================================
+        // ----- SALDO BANCÁRIO (Firestore + login Firebase + senha local) -----
+        // =====================================================================
+        const SENHA_SALT_HEX = '4b61288c477e06f0f761899cbab96a80';
+        const SENHA_HASH_HEX = 'e30d48b55258dbf60f60ccdb2a6ed36f2d6a402704dbfe9c196e788ffaf30783';
+        const SENHA_ITERACOES = 210000;
+        const LS_AUTH = 'bimer_saldos_auth_v1';
+        const AUTH_DIAS = 30;
+
+        let saldoData = { contas: [], atualizadoEm: null };
+        let saldoDesbloqueado = false;
+        let ultimoAprovado = 0;
+        let tentativasSenha = 0;
+        let bloqueioAte = 0;
+
+        const saldoCardEl = document.getElementById('cardSaldo');
+        const saldoDisponivelValorEl = document.getElementById('saldoDisponivelValor');
+        const saldoDisponivelSubEl = document.getElementById('saldoDisponivelSub');
+        const saldoModal = document.getElementById('saldoModal');
+        const saldoViewEl = document.getElementById('saldoView');
+        const saldoEditEl = document.getElementById('saldoEdit');
+        const saldoListaEl = document.getElementById('saldoLista');
+        const saldoEditListaEl = document.getElementById('saldoEditLista');
+        const senhaModal = document.getElementById('senhaModal');
+        const senhaInput = document.getElementById('senhaInput');
+        const senhaErro = document.getElementById('senhaErro');
+        const senhaLembrar = document.getElementById('senhaLembrar');
+
+        function formatarSaldo(valor) {
+            return (valor < 0 ? '-' : '') + formatarValor(valor);
+        }
+        function formatarNumeroBr(valor) {
+            return (valor < 0 ? '-' : '') + formatarValor(valor).replace('R$ ', '');
+        }
+        function lerValorBr(texto) {
+            let s = String(texto == null ? '' : texto).replace(/R\$/gi, '').replace(/\s/g, '');
+            if (!s) return NaN;
+            const negativo = s.startsWith('-') || (s.startsWith('(') && s.endsWith(')'));
+            s = s.replace(/[-()]/g, '');
+            if (!/^[\d.,]+$/.test(s)) return NaN;
+            if (s.includes(',')) {
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else if ((s.match(/\./g) || []).length > 1 || /^\d{1,3}\.\d{3}$/.test(s)) {
+                s = s.replace(/\./g, '');
+            }
+            const n = parseFloat(s);
+            if (isNaN(n)) return NaN;
+            return negativo ? -n : n;
+        }
+        function diaISO(d) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        function novoIdConta() {
+            return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        }
+
+        async function carregarSaldosDoFirestore() {
+            try {
+                const dados = await window.BimerAuth.lerSaldos();
+                if (dados) {
+                    saldoData = {
+                        contas: dados.contas
+                            .filter(c => c && typeof c.nome === 'string')
+                            .map(c => ({ id: String(c.id || novoIdConta()), nome: c.nome, saldo: Number(c.saldo) || 0 })),
+                        atualizadoEm: dados.atualizadoEm || null,
+                    };
+                } else {
+                    saldoData = { contas: [], atualizadoEm: null };
+                }
+            } catch (e) {
+                console.warn('Não foi possível ler os saldos do Firestore:', e);
+                saldoData = { contas: [], atualizadoEm: null };
+            }
+            atualizarSaldoCard();
+        }
+
+        async function persistirSaldos() {
+            try {
+                await window.BimerAuth.salvarSaldos(saldoData);
+                return true;
+            } catch (e) {
+                console.error('Erro ao salvar saldos no Firestore:', e);
+                alert('Não foi possível salvar os saldos. Verifique se você está logado e se as regras do Firestore permitem a escrita.');
+                return false;
+            }
+        }
+
+        function totalLancado() {
+            return saldoData.contas.reduce((s, c) => s + (c.saldo || 0), 0);
+        }
+
+        function hexParaBytes(hex) {
+            const out = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+            return out;
+        }
+        function bytesParaHex(buf) {
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        async function derivarHash(senha) {
+            if (!window.crypto || !window.crypto.subtle) {
+                throw new Error('Este recurso exige HTTPS (ou localhost) para validar a senha.');
+            }
+            const chave = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveBits']);
+            const bits = await crypto.subtle.deriveBits(
+                { name: 'PBKDF2', salt: hexParaBytes(SENHA_SALT_HEX), iterations: SENHA_ITERACOES, hash: 'SHA-256' },
+                chave, 256
+            );
+            return bytesParaHex(bits);
+        }
+        function lembrarDesbloqueio(lembrar) {
+            try {
+                if (lembrar) {
+                    localStorage.setItem(LS_AUTH, JSON.stringify({ t: SENHA_HASH_HEX, exp: Date.now() + AUTH_DIAS * 86400000 }));
+                } else {
+                    localStorage.removeItem(LS_AUTH);
+                }
+            } catch (e) { /* sem armazenamento: vale só nesta sessão */ }
+        }
+        function restaurarDesbloqueio() {
+            try {
+                const obj = JSON.parse(localStorage.getItem(LS_AUTH) || 'null');
+                if (obj && obj.t === SENHA_HASH_HEX && obj.exp > Date.now()) {
+                    saldoDesbloqueado = true;
+                } else if (obj) {
+                    localStorage.removeItem(LS_AUTH);
+                }
+            } catch (e) { /* ignora */ }
+        }
+
+        function atualizarSaldoCard(totalAprovado) {
+            if (typeof totalAprovado === 'number') ultimoAprovado = totalAprovado;
+            if (!saldoDisponivelValorEl) return;
+            const lancado = totalLancado();
+            const disponivel = lancado - ultimoAprovado;
+            saldoDisponivelValorEl.textContent = formatarSaldo(disponivel);
+            saldoCardEl.classList.toggle('saldo-negativo', disponivel < 0);
+            saldoDisponivelSubEl.textContent = saldoData.contas.length === 0
+                ? 'Nenhum saldo lançado'
+                : `Lançado ${formatarSaldo(lancado)} · Aprovado −${formatarValor(ultimoAprovado)}`;
+            if (saldoModal.classList.contains('active') && saldoViewEl.style.display !== 'none') {
+                renderSaldoView();
+            }
+        }
+
+        function renderSaldoView() {
+            const lancado = totalLancado();
+            const disponivel = lancado - ultimoAprovado;
+            document.getElementById('resumoLancado').textContent = formatarSaldo(lancado);
+            document.getElementById('resumoAprovado').textContent = '−' + formatarValor(ultimoAprovado);
+            const dispEl = document.getElementById('resumoDisponivel');
+            dispEl.textContent = formatarSaldo(disponivel);
+            dispEl.classList.toggle('negativo', disponivel < 0);
+
+            saldoListaEl.innerHTML = saldoData.contas.length === 0
+                ? '<div class="saldo-vazio"><i class="fas fa-circle-info"></i> Nenhuma conta cadastrada. Use "Atualizar saldos" para cadastrar.</div>'
+                : saldoData.contas.map(c => `
+                    <div class="saldo-conta">
+                        <span class="saldo-conta-nome"><i class="fas fa-building-columns"></i> ${escHtml(c.nome)}</span>
+                        <strong class="${c.saldo < 0 ? 'negativo' : ''}">${formatarSaldo(c.saldo)}</strong>
+                    </div>`).join('');
+
+            const info = document.getElementById('saldoAtualizadoEm');
+            const aviso = document.getElementById('saldoAvisoDesatualizado');
+            if (saldoData.atualizadoEm) {
+                const d = new Date(saldoData.atualizadoEm);
+                info.textContent = `Última atualização: ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+                if (diaISO(d) !== diaISO(new Date())) {
+                    aviso.style.display = 'block';
+                    aviso.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Os saldos não foram atualizados hoje.';
+                } else {
+                    aviso.style.display = 'none';
+                }
+            } else {
+                info.textContent = '';
+                aviso.style.display = 'none';
+            }
+        }
+        function abrirSaldoDetalhes() {
+            saldoViewEl.style.display = '';
+            saldoEditEl.style.display = 'none';
+            renderSaldoView();
+            saldoModal.classList.add('active');
+        }
+        function fecharSaldoModal() {
+            saldoModal.classList.remove('active');
+        }
+
+        function linhaEdicaoHtml(conta, vazia) {
+            return `<div class="saldo-edit-row" data-id="${escAttr(conta.id)}">
+                <input type="text" class="conta-nome" placeholder="Nome da conta (ex.: Santander Gavea)" value="${vazia ? '' : escAttr(conta.nome)}" maxlength="60">
+                <input type="text" class="conta-valor" inputmode="decimal" placeholder="0,00" value="${vazia ? '' : escAttr(formatarNumeroBr(conta.saldo))}">
+                <button type="button" class="btn-remover-conta" title="Remover conta"><i class="fas fa-trash"></i></button>
+            </div>`;
+        }
+        function adicionarLinhaConta() {
+            saldoEditListaEl.insertAdjacentHTML('beforeend', linhaEdicaoHtml({ id: novoIdConta(), nome: '', saldo: 0 }, true));
+            saldoEditListaEl.lastElementChild.querySelector('.conta-nome').focus();
+        }
+        function abrirEdicaoSaldos() {
+            saldoViewEl.style.display = 'none';
+            saldoEditEl.style.display = '';
+            saldoEditListaEl.innerHTML = saldoData.contas.map(c => linhaEdicaoHtml(c, false)).join('');
+            if (saldoData.contas.length === 0) adicionarLinhaConta();
+            atualizarTotalEdicao();
+            saldoModal.classList.add('active');
+        }
+        function atualizarTotalEdicao() {
+            let total = 0;
+            saldoEditListaEl.querySelectorAll('.conta-valor').forEach(inp => {
+                const v = lerValorBr(inp.value);
+                if (!isNaN(v)) total += v;
+            });
+            document.getElementById('saldoEditTotal').textContent = formatarSaldo(total);
+        }
+        async function salvarEdicaoSaldos() {
+            const contas = [];
+            const nomesUsados = new Set();
+            let erro = '';
+            saldoEditListaEl.querySelectorAll('.saldo-edit-row').forEach(linha => {
+                const inpNome = linha.querySelector('.conta-nome');
+                const inpValor = linha.querySelector('.conta-valor');
+                inpNome.classList.remove('invalido');
+                inpValor.classList.remove('invalido');
+                const nome = inpNome.value.trim();
+                const textoValor = inpValor.value.trim();
+                if (!nome && !textoValor) return;
+                if (!nome) { inpNome.classList.add('invalido'); erro = erro || 'Informe o nome de todas as contas.'; return; }
+                const chave = nome.toLowerCase();
+                if (nomesUsados.has(chave)) { inpNome.classList.add('invalido'); erro = erro || `A conta "${nome}" está repetida.`; return; }
+                nomesUsados.add(chave);
+                const valor = textoValor === '' ? 0 : lerValorBr(textoValor);
+                if (isNaN(valor)) { inpValor.classList.add('invalido'); erro = erro || `Valor inválido na conta "${nome}".`; return; }
+                contas.push({ id: linha.dataset.id, nome, saldo: Math.round(valor * 100) / 100 });
+            });
+            if (erro) { alert(erro); return; }
+            saldoData = { contas, atualizadoEm: new Date().toISOString() };
+            if (!(await persistirSaldos())) return;
+            atualizarSaldoCard();
+            abrirSaldoDetalhes();
+        }
+
+        function pedirSenha() {
+            const user = window.BimerAuth?.usuarioAtual?.();
+            if (!user) {
+                abrirLoginFirebase(() => pedirSenha());
+                return;
+            }
+            if (saldoDesbloqueado) { abrirEdicaoSaldos(); return; }
+            senhaInput.value = '';
+            senhaErro.textContent = '';
+            senhaLembrar.checked = false;
+            senhaModal.classList.add('active');
+            setTimeout(() => senhaInput.focus(), 100);
+        }
+        function fecharSenhaModal() {
+            senhaModal.classList.remove('active');
+            senhaInput.value = '';
+        }
+        async function confirmarSenha() {
+            const agora = Date.now();
+            if (agora < bloqueioAte) {
+                senhaErro.textContent = `Muitas tentativas. Aguarde ${Math.ceil((bloqueioAte - agora) / 1000)}s.`;
+                return;
+            }
+            const digitada = senhaInput.value;
+            if (!digitada) { senhaErro.textContent = 'Digite a senha.'; return; }
+            const btn = document.getElementById('confirmarSenha');
+            btn.disabled = true;
+            try {
+                const hash = await derivarHash(digitada);
+                if (hash === SENHA_HASH_HEX) {
+                    tentativasSenha = 0;
+                    saldoDesbloqueado = true;
+                    lembrarDesbloqueio(senhaLembrar.checked);
+                    fecharSenhaModal();
+                    abrirEdicaoSaldos();
+                } else {
+                    tentativasSenha++;
+                    senhaInput.value = '';
+                    if (tentativasSenha >= 5) {
+                        bloqueioAte = Date.now() + 30000;
+                        tentativasSenha = 0;
+                        senhaErro.textContent = 'Senha incorreta. Aguarde 30s para tentar de novo.';
+                    } else {
+                        senhaErro.textContent = 'Senha incorreta.';
+                    }
+                }
+            } catch (e) {
+                senhaErro.textContent = e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        function bloquearSaldos() {
+            saldoDesbloqueado = false;
+            lembrarDesbloqueio(false);
+            abrirSaldoDetalhes();
+        }
+
+        async function abrirLoginFirebase(aoLogar) {
+            const email = window.prompt('E-mail (Firebase):');
+            if (!email) return;
+            const senha = window.prompt('Senha (Firebase):');
+            if (!senha) return;
+            try {
+                await window.BimerAuth.login(email, senha);
+                if (typeof aoLogar === 'function') aoLogar();
+            } catch (e) {
+                alert('Falha no login: ' + (e.message || e.code || 'erro desconhecido'));
+            }
+        }
+
+        document.getElementById('abrirSaldoDetalhes').addEventListener('click', abrirSaldoDetalhes);
+        document.getElementById('fecharSaldoView').addEventListener('click', fecharSaldoModal);
+        document.getElementById('irParaEdicaoSaldo').addEventListener('click', pedirSenha);
+        document.getElementById('cancelarEdicaoSaldo').addEventListener('click', abrirSaldoDetalhes);
+        document.getElementById('salvarSaldos').addEventListener('click', salvarEdicaoSaldos);
+        document.getElementById('addConta').addEventListener('click', adicionarLinhaConta);
+        document.getElementById('bloquearSaldos').addEventListener('click', bloquearSaldos);
+        document.getElementById('confirmarSenha').addEventListener('click', confirmarSenha);
+        document.getElementById('cancelarSenha').addEventListener('click', fecharSenhaModal);
+        senhaInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmarSenha(); });
+        saldoModal.addEventListener('click', e => { if (e.target === saldoModal && saldoEditEl.style.display === 'none') fecharSaldoModal(); });
+        senhaModal.addEventListener('click', e => { if (e.target === senhaModal) fecharSenhaModal(); });
+
+        saldoEditListaEl.addEventListener('click', e => {
+            const btn = e.target.closest('.btn-remover-conta');
+            if (!btn) return;
+            btn.closest('.saldo-edit-row').remove();
+            atualizarTotalEdicao();
+        });
+        saldoEditListaEl.addEventListener('input', e => {
+            if (e.target.classList.contains('conta-valor')) atualizarTotalEdicao();
+        });
+        saldoEditListaEl.addEventListener('focusout', e => {
+            if (!e.target.classList.contains('conta-valor')) return;
+            const v = lerValorBr(e.target.value);
+            if (!isNaN(v)) e.target.value = formatarNumeroBr(v);
+        });
+
+        restaurarDesbloqueio();
+        atualizarSaldoCard(0);
+        carregarSaldosDoFirestore();
+
+        window.BimerAuth?.aoMudarLogin?.(() => { /* hook opcional */ });
 
     })();
