@@ -307,6 +307,11 @@
                         atrasoDias = Math.round((dataProgramadaObj - dataOriginalObj) / 86400000);
                     }
 
+                    const normalizar = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                    const chaveSituacao = Object.keys(colMap).find(k => normalizar(k) === 'situacao administrativa');
+                    const situacaoAdm = chaveSituacao ? getVal(row, chaveSituacao) : '';
+                    const urgente = normalizar(situacaoAdm).includes('urgente');
+
                     const chavePix = get('Chave PIX (a pagar)');
                     const nrAgencia = get('Nr. agência');
                     const ccFornecedor = get('C/C fornecedor (a pagar)');
@@ -329,6 +334,8 @@
                         vlTitulo: vlTitulo,
                         vlAberto: vlAberto,
                         observacao: get('Observação') || '',
+                        situacaoAdm: situacaoAdm || '',
+                        urgente: urgente,
                         status: 'Pendente',
                         novoVencimento: '',
                         formaPagamento: get('Forma de pagamento') || '',
@@ -368,6 +375,10 @@
                 if (abaAtual && r.status !== abaAtual) return false;
                 return true;
             });
+            // Urgentes sempre no topo (mantém a ordem original dentro de cada grupo)
+            filtered = filtered.map((r, i) => ({ r, i }))
+                .sort((a, b) => (b.r.urgente ? 1 : 0) - (a.r.urgente ? 1 : 0) || a.i - b.i)
+                .map(x => x.r);
             ultimosFiltrados = filtered;
             atualizarTotalFiltrado(filtered);
 
@@ -418,11 +429,11 @@
                 const vencOriginalHtml = (r.dtVencOriginal && r.dtVencOriginal !== '—')
                     ? `<div class="venc-original">Original: ${escHtml(r.dtVencOriginal)}</div>` : '';
 
-                html += `<tr>
+                html += `<tr${r.urgente ? ' class="linha-urgente"' : ''}>
                     <td class="td-checkbox" data-label="Selecionar"><input type="checkbox" class="row-checkbox" data-idx="${r.id}" ${selecionados.has(r.id) ? 'checked' : ''}></td>
                     <td class="badge-empresa" data-label="Empresa" title="${escAttr(r.empresa)}">${escHtml(r.empresa)}</td>
                     <td class="pessoa-cell" data-label="Pessoa" title="${escAttr(r.nomePessoa)}">${escHtml(r.nomePessoa)}</td>
-                    <td data-label="Nr. Título">${r.nrTitulo ? `<span class="nr-titulo"><i class="fas fa-hashtag"></i> ${escHtml(r.nrTitulo)}</span>` : '—'}</td>
+                    <td data-label="Nr. Título">${r.nrTitulo ? `<span class="nr-titulo"><i class="fas fa-hashtag"></i> ${escHtml(r.nrTitulo)}</span>` : '—'}${r.urgente ? `<div><span class="badge-urgente" title="Situação administrativa: ${escAttr(r.situacaoAdm)}"><i class="fas fa-bell"></i> URGENTE</span></div>` : ''}</td>
                     <td data-label="Vencimento">
                         <div class="venc-principal">${escHtml(r.dtVencimento)}</div>
                         ${vencOriginalHtml}

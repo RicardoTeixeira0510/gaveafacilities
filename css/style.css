@@ -480,14 +480,14 @@
         th:nth-child(1), td:nth-child(1)  { width: 3%; }
         th:nth-child(2), td:nth-child(2)  { width: 9%; }
         th:nth-child(3), td:nth-child(3)  { width: 10%; }
-        th:nth-child(4), td:nth-child(4)  { width: 6%; }
-        th:nth-child(5), td:nth-child(5)  { width: 12%; }
+        th:nth-child(4), td:nth-child(4)  { width: 8%; }
+        th:nth-child(5), td:nth-child(5)  { width: 11%; }
         th:nth-child(6), td:nth-child(6)  { width: 9%; }
         th:nth-child(7), td:nth-child(7)  { width: 9%; }
         th:nth-child(8), td:nth-child(8)  { width: 8%; }
         th:nth-child(9), td:nth-child(9)  { width: 7%; }
         th:nth-child(10), td:nth-child(10) { width: 8%; }
-        th:nth-child(11), td:nth-child(11) { width: 8%; }
+        th:nth-child(11), td:nth-child(11) { width: 7%; }
         th:nth-child(12), td:nth-child(12) { width: 11%; }
         th {
             background: #eef3fa;
@@ -1401,3 +1401,35 @@
     margin-top: auto;
 }
 .total-card .total-valor { margin-bottom: 6px; }
+
+
+/* ===== Título URGENTE (Situação administrativa) ===== */
+@keyframes pisca-urgente-linha {
+    0%, 100% { background-color: #fff; }
+    50%      { background-color: #ffd9d6; }
+}
+@keyframes pisca-urgente-badge {
+    0%, 100% { background: #d92d20; color: #fff; box-shadow: 0 0 0 0 rgba(217,45,32,0.6); }
+    50%      { background: #fff; color: #d92d20; box-shadow: 0 0 0 6px rgba(217,45,32,0); }
+}
+tr.linha-urgente td {
+    animation: pisca-urgente-linha 1.2s ease-in-out infinite;
+}
+tr.linha-urgente td:first-child { box-shadow: inset 4px 0 0 #d92d20; }
+tr.linha-urgente .pessoa-cell,
+tr.linha-urgente .nr-titulo { color: #b3261e; font-weight: 700; }
+.badge-urgente {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 5px; padding: 3px 11px;
+    max-width: 100%; box-sizing: border-box; white-space: nowrap;
+    border: 1px solid #d92d20; border-radius: 30px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.3px;
+    background: #d92d20; color: #fff;
+    animation: pisca-urgente-badge 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    tr.linha-urgente td { animation: none; background-color: #ffe4e1; }
+    .badge-urgente { animation: none; }
+}
+
+.badge-urgente i { font-size: 10px; }
