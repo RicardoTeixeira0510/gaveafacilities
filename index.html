@@ -39,15 +39,18 @@
         <div class="total-card total-geral">
             <span class="total-label"><i class="fas fa-layer-group"></i> Total Geral em Aberto</span>
             <span class="total-valor" id="totalGeralAberto">R$ 0,00</span>
+            <button type="button" class="btn-card-detalhes" data-detalhes="geral"><i class="fas fa-list-ul"></i> Ver detalhes</button>
         </div>
         <div class="total-card total-aprovado">
             <span class="total-label"><i class="fas fa-check-circle"></i> Valor Aprovado</span>
             <span class="total-valor" id="totalAprovado">R$ 0,00</span>
+            <button type="button" class="btn-card-detalhes" data-detalhes="aprovado"><i class="fas fa-list-ul"></i> Ver detalhes</button>
         </div>
         <div class="total-card total-atraso">
             <span class="total-label"><i class="fas fa-triangle-exclamation"></i> Em Atraso <span class="total-label-sub">(original x programado)</span></span>
             <span class="total-valor" id="totalAtrasoValor">R$ 0,00</span>
             <span class="total-sub" id="qtdAtrasoInfo">0 títulos em atraso</span>
+            <button type="button" class="btn-card-detalhes" data-detalhes="atraso"><i class="fas fa-list-ul"></i> Ver detalhes</button>
         </div>
     </div>
 
@@ -230,6 +233,25 @@
         <div class="btn-group-modal">
             <button class="btn-cancelar" id="cancelarData">Cancelar</button>
             <button class="btn-confirmar" id="confirmarData">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalhes dos cards (por Natureza / Centro de Custo) -->
+<div class="data-modal-overlay" id="detalhesModal">
+    <div class="data-modal detalhes-modal" data-tipo="geral">
+        <h3 id="detalhesTitulo"><i class="fas fa-list-ul"></i> Detalhes</h3>
+        <div class="detalhes-resumo">
+            <div><span id="detalhesResumoLabel">Total</span><strong id="detalhesResumoValor">R$ 0,00</strong></div>
+            <div><span>Títulos</span><strong id="detalhesResumoQtd">0</strong></div>
+        </div>
+        <div class="detalhes-toggle" id="detalhesToggle">
+            <button type="button" class="active" data-agrupar="natureza"><i class="fas fa-tags"></i> Por Natureza</button>
+            <button type="button" data-agrupar="centroCusto"><i class="fas fa-sitemap"></i> Por Centro de Custo</button>
+        </div>
+        <div class="detalhes-lista" id="detalhesLista"></div>
+        <div class="btn-group-modal">
+            <button class="btn-cancelar" id="fecharDetalhes">Fechar</button>
         </div>
     </div>
 </div>

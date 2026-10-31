@@ -1407,6 +1407,79 @@
             if (!isNaN(v)) e.target.value = formatarNumeroBr(v);
         });
 
+        // ----- DETALHES DOS CARDS (Total Geral / Aprovado / Em Atraso) -----
+        const detalhesModal = document.getElementById('detalhesModal');
+        const detalhesModalBox = detalhesModal.querySelector('.detalhes-modal');
+        const detalhesListaEl = document.getElementById('detalhesLista');
+        const detalhesToggleEl = document.getElementById('detalhesToggle');
+        let detalhesTipo = 'geral';
+        let detalhesAgrupar = 'natureza';
+
+        const DETALHES_CONFIG = {
+            geral:    { titulo: 'Total Geral em Aberto', icone: 'fa-layer-group',          filtro: () => true },
+            aprovado: { titulo: 'Valor Aprovado',        icone: 'fa-check-circle',         filtro: r => r.status === 'Aprovado' },
+            atraso:   { titulo: 'Em Atraso',             icone: 'fa-triangle-exclamation', filtro: r => r.atrasoDias !== null && r.atrasoDias !== undefined && r.atrasoDias > 0 },
+        };
+
+        function renderDetalhes() {
+            const cfg = DETALHES_CONFIG[detalhesTipo];
+            const lista = registros.filter(cfg.filtro);
+            const total = lista.reduce((s, r) => s + Math.abs(r.vlAberto || 0), 0);
+
+            const grupos = new Map();
+            lista.forEach(r => {
+                const chave = String(r[detalhesAgrupar] || 'N/A').trim() || 'N/A';
+                const g = grupos.get(chave) || { nome: chave, valor: 0, qtd: 0 };
+                g.valor += Math.abs(r.vlAberto || 0);
+                g.qtd += 1;
+                grupos.set(chave, g);
+            });
+            const ordenados = Array.from(grupos.values()).sort((a, b) => b.valor - a.valor);
+
+            detalhesModalBox.dataset.tipo = detalhesTipo;
+            document.getElementById('detalhesTitulo').innerHTML = `<i class="fas ${cfg.icone}"></i> ${escHtml(cfg.titulo)}`;
+            document.getElementById('detalhesResumoLabel').textContent = cfg.titulo;
+            document.getElementById('detalhesResumoValor').textContent = formatarValor(total);
+            document.getElementById('detalhesResumoQtd').textContent = lista.length;
+            detalhesToggleEl.querySelectorAll('button').forEach(b =>
+                b.classList.toggle('active', b.dataset.agrupar === detalhesAgrupar));
+
+            detalhesListaEl.innerHTML = ordenados.length === 0
+                ? '<div class="detalhes-vazio"><i class="fas fa-circle-info"></i> Nenhum título para exibir.</div>'
+                : ordenados.map(g => {
+                    const pct = total > 0 ? (g.valor / total) * 100 : 0;
+                    return `<div class="detalhes-item">
+                        <div class="detalhes-item-topo">
+                            <span class="detalhes-item-nome">${escHtml(g.nome)}</span>
+                            <span class="detalhes-item-valor">${formatarValor(g.valor)}</span>
+                        </div>
+                        <div class="detalhes-barra"><span style="width:${pct.toFixed(1)}%"></span></div>
+                        <div class="detalhes-item-sub">
+                            <span>${g.qtd} título${g.qtd === 1 ? '' : 's'}</span>
+                            <span>${pct.toFixed(1).replace('.', ',')}%</span>
+                        </div>
+                    </div>`;
+                }).join('');
+        }
+
+        function abrirDetalhes(tipo) {
+            detalhesTipo = tipo;
+            renderDetalhes();
+            detalhesModal.classList.add('active');
+        }
+        function fecharDetalhes() { detalhesModal.classList.remove('active'); }
+
+        document.querySelectorAll('.btn-card-detalhes').forEach(btn =>
+            btn.addEventListener('click', () => abrirDetalhes(btn.dataset.detalhes)));
+        detalhesToggleEl.addEventListener('click', e => {
+            const b = e.target.closest('button[data-agrupar]');
+            if (!b) return;
+            detalhesAgrupar = b.dataset.agrupar;
+            renderDetalhes();
+        });
+        document.getElementById('fecharDetalhes').addEventListener('click', fecharDetalhes);
+        detalhesModal.addEventListener('click', e => { if (e.target === detalhesModal) fecharDetalhes(); });
+
         restaurarDesbloqueio();
         atualizarSaldoCard(0);
         carregarSaldosDoFirestore();
